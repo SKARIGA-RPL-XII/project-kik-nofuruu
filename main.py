@@ -1,220 +1,110 @@
-import sys
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                             QHBoxLayout, QPushButton, QLabel, QStackedWidget, 
-                             QFrame, QSizePolicy)
-from PyQt6.QtGui import QIcon, QPixmap, QFont
-from PyQt6.QtCore import Qt, QSize
+import dearpygui.dearpygui as dpg
 
-class SignAIDashboard(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        # Menggunakan title bar standar OS
-        self.setWindowTitle("SignAI - Hand Gesture Recognition")
-        self.resize(1150, 750)
-        
-        # Font modern ala Windows 11 (Segoe UI Variable atau Segoe UI)
-        self.modern_font = QFont("Segoe UI", 10)
-        self.setFont(self.modern_font)
+dpg.create_context()
 
-        # Widget Utama
-        self.central_widget = QWidget()
-        self.central_widget.setStyleSheet("background-color: #f3f4f6;") # Warna dasar abu-abu sangat muda (Windows 11 style)
-        self.setCentralWidget(self.central_widget)
+# --- 1. TECHNICAL THEME (DARK MODE & ACCENTS) ---
+with dpg.theme() as global_theme:
+    with dpg.theme_component(dpg.mvAll):
+        # Window & Panel Colors
+        dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (15, 15, 15), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (24, 24, 28), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_Border, (40, 40, 45), category=dpg.mvThemeCat_Core)
         
-        self.main_layout = QHBoxLayout(self.central_widget)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_layout.setSpacing(0)
+        # Elements (Buttons, Sliders, etc)
+        dpg.add_theme_color(dpg.mvThemeCol_Button, (45, 45, 55), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (100, 255, 150, 150), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_Header, (40, 40, 50), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, (100, 255, 150), category=dpg.mvThemeCat_Core)
+        
+        # Rounding for professional look
+        dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 3)
+        dpg.add_theme_style(dpg.mvStyleVar_ChildRounding, 4)
+        dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, 8, 10)
 
-        # ---------------------------------------------------------
-        # 1. SIDEBAR KECIL (ICON ONLY)
-        # ---------------------------------------------------------
-        self.sidebar_mini = QFrame()
-        self.sidebar_mini.setFixedWidth(70)
-        self.sidebar_mini.setStyleSheet("background-color: #1c1f26; border: none;")
-        
-        mini_layout = QVBoxLayout(self.sidebar_mini)
-        mini_layout.setContentsMargins(10, 20, 10, 20)
-        
-        # Logo Mini
-        self.logo_mini = QLabel()
-        pix = QPixmap("assets/logo.png")
-        if not pix.isNull():
-            self.logo_mini.setPixmap(pix.scaled(32, 32, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
-        mini_layout.addWidget(self.logo_mini, 0, Qt.AlignmentFlag.AlignCenter)
-        
-        mini_layout.addSpacing(30)
-        
-        # Navigasi Mini (Gunakan ikon kecil)
-        self.btn_dash_mini = self.create_nav_btn("assets/dashboardsmall1.png", "", True)
-        self.btn_cam_mini = self.create_nav_btn("assets/teacherssmall1.png", "", True)
-        mini_layout.addWidget(self.btn_dash_mini)
-        mini_layout.addWidget(self.btn_cam_mini)
-        
-        mini_layout.addStretch()
-        
-        self.btn_logout_mini = self.create_nav_btn("assets/signoutsmall1.png", "", True)
-        mini_layout.addWidget(self.btn_logout_mini)
+# --- 2. LAYOUT UTAMA (WORKSPACE MODE) ---
+with dpg.window(tag="PrimaryWindow"):
+    
+    # TOP HEADER / STATUS BAR
+    with dpg.group(horizontal=True):
+        dpg.add_text(" GESTURA ENGINE v1.0.4", color=(100, 255, 150))
+        dpg.add_spacer(width=20)
+        dpg.add_text("|  STATUS: ")
+        dpg.add_text("CONNECTED", color=(0, 255, 0))
+        dpg.add_spacer(width=20)
+        dpg.add_text("|  MODEL: KNN-CLASSIFIER (K=3)")
 
-        # ---------------------------------------------------------
-        # 2. SIDEBAR BESAR (EXPANDED) - Struktur Konsisten
-        # ---------------------------------------------------------
-        self.sidebar_full = QFrame()
-        self.sidebar_full.setFixedWidth(230)
-        self.sidebar_full.setStyleSheet("background-color: #1c1f26; border: none;")
+    dpg.add_separator()
+    dpg.add_spacer(height=5)
+
+    with dpg.group(horizontal=True):
         
-        full_layout = QVBoxLayout(self.sidebar_full)
-        full_layout.setContentsMargins(15, 20, 15, 20)
+        # --- LEFT PANEL: CONTROL & PARAMETERS (25% Width) ---
+        with dpg.child_window(width=280, border=True):
+            dpg.add_text("SYSTEM CONTROL", bullet=True, color=(100, 255, 150))
+            dpg.add_button(label="START ENGINE", width=-1, height=30)
+            dpg.add_button(label="TERMINATE", width=-1)
+            
+            dpg.add_spacer(height=10)
+            dpg.add_separator()
+            dpg.add_spacer(height=10)
+            
+            dpg.add_text("ALGORITHM CONFIG", bullet=True, color=(100, 255, 150))
+            dpg.add_slider_int(label="K-Neighbors", default_value=3, min_value=1, max_value=15)
+            dpg.add_slider_float(label="Threshold", default_value=0.75, min_value=0.0, max_value=1.0)
+            dpg.add_checkbox(label="Show Landmarks")
+            dpg.add_checkbox(label="Show Bounding Box", default_value=True)
+            
+            dpg.add_spacer(height=10)
+            dpg.add_text("CALIBRATION", bullet=True, color=(100, 255, 150))
+            dpg.add_combo(["Static Mode", "Dynamic Flow"], default_value="Static Mode", label="Input Type")
+            dpg.add_button(label="Reset Coordinates", width=-1)
 
-        # Header Logo & SignAI (Koreksi Jarak)
-        brand_layout = QHBoxLayout()
-        brand_layout.setSpacing(15) # Jarak spesifik antara logo dan teks
-        self.logo_full = QLabel()
-        if not pix.isNull():
-            self.logo_full.setPixmap(pix.scaled(32, 32, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
-        
-        self.brand_text = QLabel("SignAI")
-        self.brand_text.setStyleSheet("color: white; font-size: 20px; font-weight: 700; letter-spacing: 1px;")
-        
-        brand_layout.addWidget(self.logo_full)
-        brand_layout.addWidget(self.brand_text)
-        brand_layout.addStretch()
-        full_layout.addLayout(brand_layout)
-        
-        full_layout.addSpacing(40)
+        # --- CENTER PANEL: LIVE FEED (50% Width) ---
+        with dpg.group():
+            with dpg.child_window(width=600, height=450, border=True):
+                # Ini tempat video OpenCV nantinya
+                dpg.add_text("LIVE STREAMING OUTPUT", color=(150, 150, 150))
+                dpg.add_spacer(height=180)
+                with dpg.group(horizontal=True):
+                    dpg.add_spacer(width=200)
+                    dpg.add_loading_indicator(style=1)
+            
+            # BOTTOM PANEL: LIVE CONSOLE LOG
+            with dpg.child_window(width=600, height=-1, border=True):
+                dpg.add_text("SYSTEM LOGS", color=(100, 255, 150))
+                dpg.add_text("[INFO] Gesture Engine Initialized...", color=(150, 150, 150))
+                dpg.add_text("[INFO] KNN Model Loaded: 14 classes found", color=(150, 150, 150))
+                dpg.add_text("[DATA] Hand detected at (x:342, y:112)", color=(200, 200, 200))
 
-        # Dashboard & Logout sekarang pakai ikon kecil + teks manual (Struktur Sama)
-        self.btn_dash_full = self.create_nav_btn("assets/dashboardsmall1.png", "  Dashboard", False)
-        self.btn_cam_full = self.create_nav_btn("assets/teacherssmall1.png", "  Handsign Camera", False)
-        
-        full_layout.addWidget(self.btn_dash_full)
-        full_layout.addWidget(self.btn_cam_full)
-        
-        full_layout.addStretch()
-        
-        # Sign Out (Struktur Sama)
-        self.btn_logout_full = self.create_nav_btn("assets/signoutsmall1.png", "  Sign Out", False)
-        # Memberikan aksen merah tipis pada hover untuk Logout
-        self.btn_logout_full.setStyleSheet("""
-            QPushButton { color: #ebedef; border: none; padding: 12px; text-align: left; border-radius: 4px; font-size: 13px; }
-            QPushButton:hover { background-color: #e84118; color: white; }
-        """)
-        full_layout.addWidget(self.btn_logout_full)
+        # --- RIGHT PANEL: ANALYTICS & PROBABILITY (25% Width) ---
+        with dpg.child_window(width=-1, border=True):
+            dpg.add_text("PREDICTION ANALYSIS", bullet=True, color=(100, 255, 150))
+            
+            # Simulasi Grafik Probabilitas KNN
+            dpg.add_text("Confidence Score:")
+            dpg.add_progress_bar(label="Class A", default_value=0.85, overlay="Class A: 85%", width=-1)
+            dpg.add_progress_bar(label="Class B", default_value=0.12, overlay="Class B: 12%", width=-1)
+            dpg.add_progress_bar(label="Others", default_value=0.03, overlay="Others: 3%", width=-1)
+            
+            dpg.add_spacer(height=20)
+            dpg.add_text("COORDINATE MATRIX", bullet=True, color=(100, 255, 150))
+            # Tabel data teknis
+            with dpg.table(header_row=True, borders_innerH=True, borders_outerH=True, borders_innerV=True, borders_outerV=True):
+                dpg.add_table_column(label="Point")
+                dpg.add_table_column(label="X")
+                dpg.add_table_column(label="Y")
+                for i in range(5):
+                    with dpg.table_row():
+                        dpg.add_text(f"Landmark {i}")
+                        dpg.add_text("0.452")
+                        dpg.add_text("0.891")
 
-        # ---------------------------------------------------------
-        # 3. KONTEN UTAMA
-        # ---------------------------------------------------------
-        self.main_content = QWidget()
-        self.content_layout = QVBoxLayout(self.main_content)
-        self.content_layout.setContentsMargins(0, 0, 0, 0)
-        self.content_layout.setSpacing(0)
+dpg.bind_theme(global_theme)
 
-        # Sub-Header (White Bar)
-        self.header_bar = QFrame()
-        self.header_bar.setFixedHeight(60)
-        self.header_bar.setStyleSheet("background-color: white; border-bottom: 1px solid #e5e7eb;")
-        header_layout = QHBoxLayout(self.header_bar)
-        
-        self.toggle_btn = QPushButton("☰")
-        self.toggle_btn.setCheckable(True)
-        self.toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.toggle_btn.setStyleSheet("""
-            QPushButton { border: none; font-size: 20px; color: #1c1f26; padding: 5px; background: transparent; }
-            QPushButton:hover { background-color: #f3f4f6; border-radius: 5px; }
-        """)
-        self.toggle_btn.clicked.connect(self.toggle_sidebar)
-        header_layout.addWidget(self.toggle_btn)
-        
-        header_layout.addSpacing(20)
-        page_title = QLabel("Dashboard Pages")
-        page_title.setStyleSheet("font-size: 14px; font-weight: 600; color: #374151;")
-        header_layout.addWidget(page_title)
-        
-        header_layout.addStretch()
-
-        # Stacked Widget (Konten)
-        self.pages = QStackedWidget()
-        self.page_dashboard = QFrame()
-        self.page_dashboard.setStyleSheet("background-color: #f9fafb;")
-        
-        dash_layout = QVBoxLayout(self.page_dashboard)
-        dash_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        # 1. Membuat Label untuk Gambar Utama
-        self.home_img = QLabel()
-        pix_welcome = QPixmap("assets/Business merger-amico.png") # Ganti dengan path gambar utama Anda (misal: welcome_img.png)
-
-        if not pix_welcome.isNull():
-            # Menggunakan ukuran sedang (misal lebar 250px)
-            self.home_img.setPixmap(pix_welcome.scaled(300, 300, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
-
-        self.home_img.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.home_img.setStyleSheet("margin-bottom: 10px;") # Memberi jarak ke teks di bawahnya
-        dash_layout.addWidget(self.home_img)
-
-        # 2. Membuat Label Teks "Welcome to SignAI"
-        welcome_lbl = QLabel("Welcome to SignAI")
-        welcome_lbl.setStyleSheet("""
-            font-size: 28px; 
-            font-weight: bold; 
-            color: #111827; 
-            font-family: 'Segoe UI';
-        """)
-        welcome_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        dash_layout.addWidget(welcome_lbl)
-
-        # 3. Menambahkan sub-teks (opsional agar lebih manis)
-        sub_welcome_lbl = QLabel("Sistem Pengenalan Bahasa Isyarat Tangan Berbasis Algoritma KNN")
-        sub_welcome_lbl.setStyleSheet("font-size: 14px; color: #6b7280;")
-        sub_welcome_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        dash_layout.addWidget(sub_welcome_lbl)
-        
-        self.pages.addWidget(self.page_dashboard)
-
-        self.content_layout.addWidget(self.header_bar)
-        self.content_layout.addWidget(self.pages)
-
-        # Susun Sidebar ke Layout Utama
-        self.main_layout.addWidget(self.sidebar_mini)
-        self.main_layout.addWidget(self.sidebar_full)
-        self.main_layout.addWidget(self.main_content)
-
-        # State awal: Sembunyikan mini sidebar
-        self.sidebar_mini.hide()
-
-    def create_nav_btn(self, icon_path, text="", is_mini=False):
-        btn = QPushButton(text)
-        btn.setIcon(QIcon(icon_path))
-        btn.setIconSize(QSize(20, 20))
-        btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        
-        if is_mini:
-            btn.setFixedSize(50, 50)
-            btn.setStyleSheet("""
-                QPushButton { border: none; border-radius: 5px; background: transparent; }
-                QPushButton:hover { background-color: #2c313c; }
-            """)
-        else:
-            btn.setStyleSheet("""
-                QPushButton { 
-                    color: #ebedef; border: none; padding: 12px; 
-                    text-align: left; border-radius: 4px; font-size: 13px; 
-                    font-weight: 500;
-                }
-                QPushButton:hover { background-color: #2c313c; color: white; }
-            """)
-        return btn
-
-    def toggle_sidebar(self):
-        if self.sidebar_full.isVisible():
-            self.sidebar_full.hide()
-            self.sidebar_mini.show()
-        else:
-            self.sidebar_mini.hide()
-            self.sidebar_full.show()
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    app.setStyle("Fusion")
-    window = SignAIDashboard()
-    window.show()
-    sys.exit(app.exec())
+# --- 3. VIEWPORT CONFIG ---
+dpg.create_viewport(title='Gestura Engine - Technical Workspace', width=1200, height=800)
+dpg.setup_dearpygui()
+dpg.show_viewport()
+dpg.set_primary_window("PrimaryWindow", True)
+dpg.start_dearpygui()
+dpg.destroy_context()
