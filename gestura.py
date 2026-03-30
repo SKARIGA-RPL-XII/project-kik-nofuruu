@@ -1,4 +1,5 @@
 import dearpygui.dearpygui as dpg
+import cv2 
 
 dpg.create_context()
 
