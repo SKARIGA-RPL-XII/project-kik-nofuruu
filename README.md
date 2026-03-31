@@ -193,10 +193,10 @@ This project serves as a research implementation for:
 
 ## 📧 Contact & Support
 
-**Developed by**: Rendi  
-**Email**: [your-email@example.com]  
-**LinkedIn**: [Your LinkedIn Profile]  
-**GitHub**: [@yourusername]
+**Developed by**: Naufal  
+**Email**: [nfatihulx@gmail.com]  
+**LinkedIn**: [https://www.linkedin.com/in/naufal-fatihul-6729603a1/]  
+**GitHub**: [@nofuruu]
 
 For questions, suggestions, or collaboration inquiries, feel free to reach out!
 
