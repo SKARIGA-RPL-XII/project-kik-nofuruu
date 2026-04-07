@@ -3,13 +3,14 @@ import numpy as np
 import mediapipe as mp
 import dearpygui.dearpygui as dpg
 import time
+import engine 
+from engine import GestureEngine
 
-# ================== STATE MANAGEMENT ==================
-# Variabel global untuk mengontrol apakah sistem "hidup" atau "mati"
+# ================== Global Variable ==================
 engine_running = False 
-cap = None # Kamera tidak diinisialisasi secara default
+cap = None 
 
-# ================== MEDIAPIPE SETUP ==================
+# ================== Mediapipe setup ==================
 mp_hands = mp.solutions.hands
 mp_draw = mp.solutions.drawing_utils
 
@@ -20,7 +21,6 @@ hands = mp_hands.Hands(
     min_tracking_confidence=0.7,
 )
 
-# Set resolusi default untuk tekstur (bisa disesuaikan dengan kamera Anda)
 cam_width = 640
 cam_height = 480
 
@@ -46,14 +46,8 @@ def log_message(message, color=(200, 200, 200)):
     """Fungsi helper untuk menambah log ke UI"""
     timestamp = time.strftime('%H:%M:%S')
     dpg.add_text(f"[{timestamp}] {message}", color=color, parent="log_group")
-    # Auto-scroll opsional jika log sudah terlalu penuh
     y_scroll = dpg.get_y_scroll_max("log_window")
     dpg.set_y_scroll("log_window", y_scroll)
-
-
-def define_conture(A):
-    # Menggunakan fungsi helper log
-    log_message(f"[ACTION] Data Captured! Matrix shape: {A.shape}", color=(255, 255, 100))
 
 
 def engine_control(sender, app_data, user_data):
@@ -62,20 +56,16 @@ def engine_control(sender, app_data, user_data):
     if user_data == "START" and not engine_running:
         log_message("[SYSTEM] Initializing Hardware and Model...", color=(150, 150, 150))
         
-        # 1. Buka Kamera
         cap = cv2.VideoCapture(0)
         if not cap.isOpened():
             log_message("[ERROR] Failed to open camera!", color=(255, 0, 0))
             return
             
-        # Update dimensi tekstur sesuai kamera yang berhasil dibuka
         cam_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         cam_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         
-        # 2. Set State
         engine_running = True
         
-        # 3. Update UI
         dpg.set_value("status_text", "ACTIVE")
         dpg.configure_item("status_text", color=(0, 255, 0))
         log_message("[SUCCESS] Engine Started. Model Ready.", color=(100, 255, 150))
@@ -83,10 +73,8 @@ def engine_control(sender, app_data, user_data):
     elif user_data == "TERMINATE" and engine_running:
         log_message("[SYSTEM] Terminating processes...", color=(255, 150, 50))
         
-        # 1. Stop State
         engine_running = False
         
-        # 2. Release Hardware
         if cap is not None:
             cap.release()
             cap = None
@@ -95,7 +83,6 @@ def engine_control(sender, app_data, user_data):
         blank_texture = np.zeros((cam_height, cam_width, 4), dtype=np.float32)
         dpg.set_value("camera_texture", blank_texture)
         
-        # 4. Update UI
         dpg.set_value("status_text", "DISCONNECTED")
         dpg.configure_item("status_text", color=(255, 0, 0))
         log_message("[INFO] All systems released safely.", color=(150, 150, 150))
@@ -139,12 +126,11 @@ with dpg.window(tag="PrimaryWindow"):
 
     dpg.add_separator()
     dpg.add_spacer(height=5)
-
+    
     with dpg.group(horizontal=True):
         # LEFT PANEL
         with dpg.child_window(width=280, border=True):
             dpg.add_text("SYSTEM CONTROL", bullet=True, color=(100, 255, 150))
-            # Pasang callback ke tombol
             dpg.add_button(label="START ENGINE", width=-1, height=30, callback=engine_control, user_data="START")
             dpg.add_button(label="TERMINATE", width=-1, callback=engine_control, user_data="TERMINATE")
 
@@ -203,46 +189,50 @@ dpg.set_primary_window("PrimaryWindow", True)
 capture_cooldown = 0
 
 while dpg.is_dearpygui_running():
-    # Hanya baca frame jika engine sedang running
     if engine_running and cap is not None:
         ret, frame = cap.read()
         if ret:
             frame = cv2.flip(frame, 1)
             points, hand_landmarks = get_hand_points_mediapipe(frame)
-
+            
             show_landmarks = dpg.get_value("show_lm_cb")
+            
 
             if points is not None:
                 if show_landmarks:
                     mp_draw.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
                     for i, (x, y) in enumerate(points):
                         cv2.circle(frame, (int(x), int(y)), 4, (0, 0, 255), -1)
+                        cv2.putText(
+                            frame, 
+                            str(i),
+                            (int(x) + 4, int(y) - 4),
+                            cv2.FONT_HERSHEY_SCRIPT_SIMPLEX,
+                            0.4,
+                            (255, 255, 255),
+                            1,
+                        )
 
-                # Update tabel (5 titik pertama)
                 for i in range(5):
                     lm = hand_landmarks.landmark[i]
                     dpg.set_value(f"t_x_{i}", f"{lm.x:.3f}")
                     dpg.set_value(f"t_y_{i}", f"{lm.y:.3f}")
 
-                # Tombol 'C' (67 adalah kode key untuk 'C' di DPG)
                 if dpg.is_key_down(67) and capture_cooldown == 0:
                     A = points.flatten().reshape(1, -1)
-                    define_conture(A)
-                    capture_cooldown = 15 # Cegah multiple capture
+                    GestureEngine.define_conture(A)
+                    capture_cooldown = 15 
 
             if capture_cooldown > 0:
                 capture_cooldown -= 1
 
-            # Update Tekstur DPG
             rgba_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
-            # Resize jika resolusi kamera tidak sama dengan canvas default
             if rgba_frame.shape[1] != cam_width or rgba_frame.shape[0] != cam_height:
                  rgba_frame = cv2.resize(rgba_frame, (cam_width, cam_height))
                  
             texture_data = rgba_frame.astype(np.float32) / 255.0
-            dpg.set_value("camera_texture", texture_data.flatten()) # Pastikan data di-flatten
+            dpg.set_value("camera_texture", texture_data.flatten()) 
 
-    # Render frame UI (Kamera hidup atau mati, UI harus tetap jalan)
     dpg.render_dearpygui_frame()
 
 # ================== CLEANUP ==================
