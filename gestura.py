@@ -1,3 +1,6 @@
+# -------------------
+# Import Library
+# -------------------
 import cv2
 import numpy as np
 import mediapipe as mp
@@ -7,18 +10,25 @@ import matplotlib.pyplot as plt
 import seaborn as sns 
 import io 
 from PIL import Image
-
 import engine 
 from engine import GestureEngine
 
-# ================== Global Variable ==================
+
+
+# -------------------
+# Global Variables & State 
+# -------------------
 engine_running = False 
 cap = None 
 plot_width = 600
 plot_height = 400
 plot_texture_data = np.full((plot_height, plot_width, 4), 0.08, dtype=np.float32)
 
-# ================== Mediapipe setup ==================
+
+
+# -------------------
+# Mediapipe Setup
+# -------------------
 mp_hands = mp.solutions.hands
 mp_draw = mp.solutions.drawing_utils
 
@@ -31,6 +41,27 @@ hands = mp_hands.Hands(
 
 cam_width = 640
 cam_height = 480
+
+
+
+# -------------------
+# Functions
+# -------------------
+
+def authenticate_user(sender, app_data, user_data):
+    username = dpg.get_value("username")
+    password = dpg.get_value("password")
+    
+    if username == "admin" and password == "password123":
+        dpg.set_value("login_message", "[INFO] Login Berhasil! Memuat Workspace...")
+        dpg.configure_item("login_message", color=(74, 222, 128, 255))
+        
+        dpg.hide_item("LoginWindow")
+        dpg.show_item("PrimaryWindow")
+        dpg.set_primary_window("PrimaryWindow", True)
+    else:
+        dpg.set_value("login_message", "[ERROR] Username atau Password salah!")
+        dpg.configure_item("login_message", color=(248, 113, 113, 255))
 
 def get_hand_points_mediapipe(frame):
     h, w, _ = frame.shape
@@ -126,7 +157,198 @@ def generate_analysis_plot():
         
         dpg.set_value("plot_texture", img_array.flatten())
         
-# ================== DPG SETUP ==================
+        
+        
+# -------------------
+# Dpg Setup & Main Loop
+# -------------------
+
+def build_login_window():
+    with dpg.window(tag="LoginWindow", no_title_bar=True, no_resize=True, no_move=True):
+        dpg.add_spacer(height=200)
+        
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=450) 
+            
+            # 1. Ubah height dari 300 menjadi 350 agar tidak terpotong
+            with dpg.child_window(width=380, height=350, border=True, no_scrollbar=True):
+                dpg.add_spacer(height=15)
+                
+                # ... (kode header dan form lainnya tetap sama) ...
+                
+                with dpg.group(horizontal=True):
+                    dpg.add_spacer(width=30)
+                    with dpg.group():
+                        dpg.add_text("Username")
+                        dpg.add_input_text(tag="username", width=300)
+                        
+                        dpg.add_spacer(height=5)
+                        dpg.add_text("Password")
+                        dpg.add_input_text(tag="password", width=300, password=True, on_enter=True, callback=authenticate_user)
+                        
+                        dpg.add_spacer(height=15)
+                        dpg.add_button(label=" SECURE LOGIN ", width=300, height=35, callback=authenticate_user)
+                        
+                        dpg.add_spacer(height=10)
+                        
+                        # 2. Beri spasi kosong " " (bukan string kosong "") 
+                        # 3. Tambahkan 255 pada format warna dasar
+                        dpg.add_text(" ", tag="login_message", color=(148, 163, 184, 255))  
+
+def build_main_windows():
+    with dpg.window(tag="PrimaryWindow", show=False, no_scrollbar=True, no_move=True, no_collapse=True, no_title_bar=True):
+        with dpg.group(horizontal=True):
+            
+            # ================== SIDEBAR ==================
+            with dpg.child_window(width=280, border=False, no_scrollbar=True):
+                
+                with dpg.child_window(height=85, border=True, no_scrollbar=True):
+                    dpg.add_spacer(height=8)
+                    dpg.add_text("  GESTURA ENGINE", color=(26, 188, 156)) 
+                    dpg.add_spacer(height=2)
+                    dpg.add_text("  Admin Panel", color=(148, 163, 184))
+
+                dpg.add_spacer(height=10)
+
+                with dpg.child_window(height=175, border=True, no_scrollbar=True):
+                    dpg.add_spacer(height=5)
+                    dpg.add_text("  MAIN MENU", color=(148, 163, 184))
+                    dpg.add_separator()
+                    dpg.add_spacer(height=8)
+                    dpg.add_button(label=" Start Tracking", width=-1, height=35, callback=engine_control, user_data="START")
+                    dpg.add_spacer(height=2)
+                    dpg.add_button(label=" Terminate Sistem", width=-1, height=35, callback=engine_control, user_data="TERMINATE")
+                    
+                dpg.add_spacer(height=10)
+
+                with dpg.child_window(height=-1, border=True, no_scrollbar=True):
+                    dpg.add_spacer(height=5)
+                    dpg.add_text("  KONFIGURASI", color=(148, 163, 184))
+                    dpg.add_separator()
+                    dpg.add_spacer(height=5)
+                    dpg.add_slider_int(label="K-Value", default_value=3, min_value=1, max_value=15, width=150)
+                    dpg.add_slider_float(label="Threshold", default_value=0.75, min_value=0.0, max_value=1.0, width=150)
+                    dpg.add_spacer(height=10)
+                    dpg.add_checkbox(label=" Tampilkan Nodes", default_value=True, tag="show_lm_cb")
+                    dpg.add_spacer(height=15)
+                    dpg.add_button(label=" Reset Kalibrasi", width=-1, height=35)
+
+            # ================== Main Workspace ==================
+            with dpg.group():            
+                with dpg.tab_bar():
+                    
+                    # --- TAB 1: MAIN WORKSPACE ---
+                    with dpg.tab(label="Main Workspace"):
+                        
+                        with dpg.child_window(height=45, border=True, width=-1, no_scrollbar=True):
+                            with dpg.group(horizontal=True):
+                                dpg.add_spacer(width=5, height=25)
+                                dpg.add_text("Sistem Pakar |", color=(148, 163, 184))
+                                dpg.add_text("Diagnosis Gestur Hand-Landmark Metode KNN", color=(230, 240, 235))
+
+                        with dpg.group(horizontal=True):
+                            with dpg.child_window(width=240, height=80, border=True, no_scrollbar=True):
+                                dpg.add_text(" STATUS KONEKSI", color=(248, 113, 113)) 
+                                dpg.add_separator()
+                                dpg.add_spacer(height=6)
+                                dpg.add_text("DISCONNECTED", tag="status_text", color=(248, 113, 113))
+
+                            with dpg.child_window(width=230, height=80, border=True, no_scrollbar=True):
+                                dpg.add_text(" DATA MODEL", color=(26, 188, 156)) 
+                                dpg.add_separator()
+                                dpg.add_spacer(height=6)
+                                dpg.add_text("K-Nearest Neighbor")
+
+                            with dpg.child_window(width=235, height=80, border=True, no_scrollbar=True):
+                                dpg.add_text(" CONFIDENCE RATE", color=(74, 222, 128)) 
+                                dpg.add_separator()
+                                dpg.add_spacer(height=6)
+                                dpg.add_progress_bar(label="", default_value=0.85, overlay="Akurasi: 85%", width=-1, height=20)
+
+                            with dpg.child_window(width=235, height=80, border=True, no_scrollbar=True):
+                                dpg.add_text(" ACTIVE NODES", color=(250, 204, 21)) 
+                                dpg.add_separator()
+                                dpg.add_spacer(height=6)
+                                dpg.add_text("21 Titik Landmark")
+
+                        with dpg.group(horizontal=True):
+                            with dpg.child_window(width=660, height=515, border=True, no_scrollbar=True):
+                                with dpg.group(horizontal=True):
+                                    dpg.add_text(" VISUALISASI KAMERA", color=(148, 163, 184))
+                                    dpg.add_spacer(width=20)
+                                    dpg.add_text("| TEKAN 'C' UNTUK SIMPAN", color=(250, 204, 21))
+                                dpg.add_separator()
+                                dpg.add_spacer(height=5)
+                                with dpg.child_window(width=640, height=480, border=False, no_scrollbar=True): 
+                                    dpg.add_image("camera_texture")
+
+                            with dpg.child_window(width=-1, height=515, border=True, no_scrollbar=True):
+                                dpg.add_text(" SPATIAL MATRIX", color=(148, 163, 184))
+                                dpg.add_separator()
+                                dpg.add_spacer(height=2) 
+                                
+                                with dpg.theme() as table_theme:
+                                    with dpg.theme_component(dpg.mvTable):
+                                        dpg.add_theme_style(dpg.mvStyleVar_CellPadding, 4, 3) 
+                                        
+                                with dpg.table(header_row=True, borders_innerH=True, borders_innerV=False, borders_outerV=False, row_background=True) as matrix_table:
+                                    dpg.add_table_column(label="ID")
+                                    dpg.add_table_column(label="X")
+                                    dpg.add_table_column(label="Y")
+                                    for i in range(5):
+                                        with dpg.table_row():
+                                            dpg.add_text(f"N-{i}", color=(148, 163, 184))
+                                            dpg.add_text("0.000", tag=f"t_x_{i}", color=(26, 188, 156))
+                                            dpg.add_text("0.000", tag=f"t_y_{i}", color=(26, 188, 156))
+                                dpg.bind_item_theme(matrix_table, table_theme)
+                                
+                                dpg.add_spacer(height=10) 
+                                
+                                dpg.add_text(" TERMINAL OUTPUT", color=(148, 163, 184))
+                                dpg.add_separator()
+                                
+                                with dpg.child_window(width=-1, height=-1, border=False, tag="log_window"):
+                                    with dpg.group(tag="log_group"):
+                                        dpg.add_text("[INFO] Workspace Siap...", color=(148, 163, 184))
+                                        
+                    # --- TAB 2: WINDOW ANALYSIS ---
+                    with dpg.tab(label="Window Analysis"):
+                            with dpg.child_window(width=-1, height=-1, border=False, no_scrollbar=True):
+                                dpg.add_spacer(height=15)
+                                
+                                with dpg.group(horizontal=True):
+                                    dpg.add_text(" ANALISIS DATA MODEL", color=(26, 188, 156))
+                                    dpg.add_spacer(width=20)
+                                    dpg.add_button(label=" Render/Update Plot", callback=generate_analysis_plot)
+                                    
+                                dpg.add_separator()
+                                dpg.add_spacer(height=10)
+                                
+                                with dpg.group(horizontal=True):
+                                    
+                                    with dpg.child_window(width=640, height=480, border=True, no_scrollbar=True):
+                                        dpg.add_spacer(height=10)
+                                        with dpg.group(horizontal=True):
+                                            dpg.add_spacer(width=20)
+                                            dpg.add_image("plot_texture")
+                                            
+                                    with dpg.child_window(width=-1, height=480, border=True, no_scrollbar=True):
+                                        dpg.add_spacer(height=10)
+                                        dpg.add_text(" RINGKASAN STATISTIK", color=(148, 163, 184))
+                                        dpg.add_separator()
+                                        dpg.add_spacer(height=10)
+                                        
+                                        dpg.add_text("Model: K-Nearest Neighbor", color=(230, 240, 235))
+                                        dpg.add_text("Mean Akurasi: 85.2%", color=(74, 222, 128))
+                                        dpg.add_text("Standar Deviasi: ± 5.0%", color=(250, 204, 21))
+                                        
+                                        dpg.add_spacer(height=20)
+                                        dpg.add_text(" EXPORT DATA", color=(148, 163, 184))
+                                        dpg.add_separator()
+                                        dpg.add_spacer(height=10)
+                                        dpg.add_button(label=" Download Report (.CSV)", width=-1, height=30)
+
+
 dpg.create_context()
 
 texture_data = np.full((cam_height, cam_width, 4), 0.08, dtype=np.float32)
@@ -174,159 +396,10 @@ with dpg.theme() as global_theme:
         dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, 10, 10) 
         dpg.add_theme_style(dpg.mvStyleVar_WindowRounding, 8)
 
-with dpg.window(tag="PrimaryWindow", no_scrollbar=True, no_move=True, no_collapse=True, no_title_bar=True):
-    with dpg.group(horizontal=True):
-        
-        # ================== 1. SIDEBAR KIRI ==================
-        with dpg.child_window(width=280, border=False, no_scrollbar=True):
-            
-            with dpg.child_window(height=85, border=True, no_scrollbar=True):
-                dpg.add_spacer(height=8)
-                dpg.add_text("  GESTURA ENGINE", color=(26, 188, 156)) 
-                dpg.add_spacer(height=2)
-                dpg.add_text("  Admin Panel", color=(148, 163, 184))
+build_login_window()
+build_main_windows()
 
-            dpg.add_spacer(height=10)
 
-            with dpg.child_window(height=175, border=True, no_scrollbar=True):
-                dpg.add_spacer(height=5)
-                dpg.add_text("  MAIN MENU", color=(148, 163, 184))
-                dpg.add_separator()
-                dpg.add_spacer(height=8)
-                dpg.add_button(label=" Start Tracking", width=-1, height=35, callback=engine_control, user_data="START")
-                dpg.add_spacer(height=2)
-                dpg.add_button(label=" Terminate Sistem", width=-1, height=35, callback=engine_control, user_data="TERMINATE")
-                
-            dpg.add_spacer(height=10)
-
-            with dpg.child_window(height=-1, border=True, no_scrollbar=True):
-                dpg.add_spacer(height=5)
-                dpg.add_text("  KONFIGURASI", color=(148, 163, 184))
-                dpg.add_separator()
-                dpg.add_spacer(height=5)
-                dpg.add_slider_int(label="K-Value", default_value=3, min_value=1, max_value=15, width=150)
-                dpg.add_slider_float(label="Threshold", default_value=0.75, min_value=0.0, max_value=1.0, width=150)
-                dpg.add_spacer(height=10)
-                dpg.add_checkbox(label=" Tampilkan Nodes", default_value=True, tag="show_lm_cb")
-                dpg.add_spacer(height=15)
-                dpg.add_button(label=" Reset Kalibrasi", width=-1, height=35)
-
-        # ================== 2. AREA KERJA UTAMA (DENGAN TAB) ==================
-        with dpg.group():            
-            with dpg.tab_bar():
-                
-                # --- TAB 1: MAIN WORKSPACE ---
-                with dpg.tab(label="Main Workspace"):
-                    
-                    with dpg.child_window(height=45, border=True, width=-1, no_scrollbar=True):
-                        with dpg.group(horizontal=True):
-                            dpg.add_spacer(width=5, height=25)
-                            dpg.add_text("Sistem Pakar |", color=(148, 163, 184))
-                            dpg.add_text("Diagnosis Gestur Hand-Landmark Metode KNN", color=(230, 240, 235))
-
-                    with dpg.group(horizontal=True):
-                        with dpg.child_window(width=240, height=80, border=True, no_scrollbar=True):
-                            dpg.add_text(" STATUS KONEKSI", color=(248, 113, 113)) 
-                            dpg.add_separator()
-                            dpg.add_spacer(height=6)
-                            dpg.add_text("DISCONNECTED", tag="status_text", color=(248, 113, 113))
-
-                        with dpg.child_window(width=230, height=80, border=True, no_scrollbar=True):
-                            dpg.add_text(" DATA MODEL", color=(26, 188, 156)) 
-                            dpg.add_separator()
-                            dpg.add_spacer(height=6)
-                            dpg.add_text("K-Nearest Neighbor")
-
-                        with dpg.child_window(width=235, height=80, border=True, no_scrollbar=True):
-                            dpg.add_text(" CONFIDENCE RATE", color=(74, 222, 128)) 
-                            dpg.add_separator()
-                            dpg.add_spacer(height=6)
-                            dpg.add_progress_bar(label="", default_value=0.85, overlay="Akurasi: 85%", width=-1, height=20)
-
-                        with dpg.child_window(width=235, height=80, border=True, no_scrollbar=True):
-                            dpg.add_text(" ACTIVE NODES", color=(250, 204, 21)) 
-                            dpg.add_separator()
-                            dpg.add_spacer(height=6)
-                            dpg.add_text("21 Titik Landmark")
-
-                    with dpg.group(horizontal=True):
-                        with dpg.child_window(width=660, height=515, border=True, no_scrollbar=True):
-                            with dpg.group(horizontal=True):
-                                dpg.add_text(" VISUALISASI KAMERA", color=(148, 163, 184))
-                                dpg.add_spacer(width=20)
-                                dpg.add_text("| TEKAN 'C' UNTUK SIMPAN", color=(250, 204, 21))
-                            dpg.add_separator()
-                            dpg.add_spacer(height=5)
-                            with dpg.child_window(width=640, height=480, border=False, no_scrollbar=True): 
-                                dpg.add_image("camera_texture")
-
-                        with dpg.child_window(width=-1, height=515, border=True, no_scrollbar=True):
-                            dpg.add_text(" SPATIAL MATRIX", color=(148, 163, 184))
-                            dpg.add_separator()
-                            dpg.add_spacer(height=2) 
-                            
-                            with dpg.theme() as table_theme:
-                                with dpg.theme_component(dpg.mvTable):
-                                    dpg.add_theme_style(dpg.mvStyleVar_CellPadding, 4, 3) 
-                                    
-                            with dpg.table(header_row=True, borders_innerH=True, borders_innerV=False, borders_outerV=False, row_background=True) as matrix_table:
-                                dpg.add_table_column(label="ID")
-                                dpg.add_table_column(label="X")
-                                dpg.add_table_column(label="Y")
-                                for i in range(5):
-                                    with dpg.table_row():
-                                        dpg.add_text(f"N-{i}", color=(148, 163, 184))
-                                        dpg.add_text("0.000", tag=f"t_x_{i}", color=(26, 188, 156))
-                                        dpg.add_text("0.000", tag=f"t_y_{i}", color=(26, 188, 156))
-                            dpg.bind_item_theme(matrix_table, table_theme)
-                            
-                            dpg.add_spacer(height=10) 
-                            
-                            dpg.add_text(" TERMINAL OUTPUT", color=(148, 163, 184))
-                            dpg.add_separator()
-                            
-                            with dpg.child_window(width=-1, height=-1, border=False, tag="log_window"):
-                                with dpg.group(tag="log_group"):
-                                    dpg.add_text("[INFO] Workspace Siap...", color=(148, 163, 184))
-                                    
-                # --- TAB 2: WINDOW ANALYSIS ---
-                with dpg.tab(label="Window Analysis"):
-                        with dpg.child_window(width=-1, height=-1, border=False, no_scrollbar=True):
-                            dpg.add_spacer(height=15)
-                            
-                            # Header Tab
-                            with dpg.group(horizontal=True):
-                                dpg.add_text(" ANALISIS DATA MODEL", color=(26, 188, 156))
-                                dpg.add_spacer(width=20)
-                                # Tombol untuk memicu pembuatan/update plot
-                                dpg.add_button(label=" Render/Update Plot", callback=generate_analysis_plot)
-                                
-                            dpg.add_separator()
-                            dpg.add_spacer(height=10)
-                            
-                            with dpg.group(horizontal=True):
-                                
-                                with dpg.child_window(width=640, height=480, border=True, no_scrollbar=True):
-                                    dpg.add_spacer(height=10)
-                                    with dpg.group(horizontal=True):
-                                        dpg.add_spacer(width=20)
-                                        dpg.add_image("plot_texture")
-                                        
-                                with dpg.child_window(width=-1, height=480, border=True, no_scrollbar=True):
-                                    dpg.add_spacer(height=10)
-                                    dpg.add_text(" RINGKASAN STATISTIK", color=(148, 163, 184))
-                                    dpg.add_separator()
-                                    dpg.add_spacer(height=10)
-                                    
-                                    dpg.add_text("Model: K-Nearest Neighbor", color=(230, 240, 235))
-                                    dpg.add_text("Mean Akurasi: 85.2%", color=(74, 222, 128))
-                                    dpg.add_text("Standar Deviasi: ± 5.0%", color=(250, 204, 21))
-                                    
-                                    dpg.add_spacer(height=20)
-                                    dpg.add_text(" EXPORT DATA", color=(148, 163, 184))
-                                    dpg.add_separator()
-                                    dpg.add_spacer(height=10)
-                                    dpg.add_button(label=" Download Report (.CSV)", width=-1, height=30)
 dpg.bind_theme(global_theme)
 dpg.create_viewport(title="Gestura Engine - Admin Dashboard", width=1280, height=800, resizable=False, decorated=True)
 dpg.setup_dearpygui()
@@ -338,9 +411,14 @@ try :
 except Exception as e:
     print(f"Warning: Failed to load custom icons. {e}")
 dpg.show_viewport()
-dpg.set_primary_window("PrimaryWindow", True)
+dpg.set_primary_window("LoginWindow", True)
 
-# ================== CUSTOM RENDER LOOP ==================
+
+
+
+# -------------------
+# Helper Render Loop Camera Processing
+# -------------------
 capture_cooldown = 0
 
 while dpg.is_dearpygui_running():

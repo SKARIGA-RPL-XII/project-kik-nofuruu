@@ -1,8 +1,10 @@
 import sqlite3
 import os
 
+
+
 class DatabaseManager:
-    def __init__(self, db_path="gestura_data.db"):
+    def __init__(self, db_path="gestura.db"):
         self.db_path = db_path
         self.init_db()
 
@@ -77,4 +79,31 @@ class DatabaseManager:
             names.extend([f"point_{i}x", f"point_{i}y"])
         return ", ".join(names)
 
-db = DatabaseManager()
+db = DatabaseManager("gestura.db")
+
+
+# -------------------
+# Database testing code
+# -------------------
+if __name__ == "__main__":
+    print("Database initialized and ready to use.")
+    
+    try : 
+        print("Testing database connection and table creation...")
+        db.log_inference("A", 0.95, 12.5)
+        print("Inference log added successfully.")
+        
+        print("Fetching recent logs...")
+        logs = db.get_recent_logs(limit=2)
+        
+        if logs:
+            print("Recent Logs:")
+            print(f"{logs}")
+            print("Database test completed successfully.")
+        else: 
+            print("No logs found. Database test failed.")
+            
+        
+    except Exception as e:
+        print(f"Database test failed with error: {e}")
+        print(f"Detail error: {e}")    
