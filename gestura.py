@@ -107,8 +107,8 @@ def generate_analysis_plot():
         ax.spines['bottom'].set_color('#23373C')
         ax.spines['left'].set_color('#23373C')
 
-        data = np.random.normal(0.85, 0.05, 1000) # Mean 85% akurasi
-        sns.histplot(data, color="#1ABC9C", kde=True, ax=ax, edgecolor="#121E23") # Warna aksen sea-blue
+        data = np.random.normal(0.85, 0.05, 1000) 
+        sns.histplot(data, color="#1ABC9C", kde=True, ax=ax, edgecolor="#121E23") 
         
         ax.set_title("Distribusi Confidence Rate (KNN)", color="#E6F0EB", pad=15)
         ax.set_xlabel("Confidence Level", color="#94A3B8")
@@ -170,8 +170,7 @@ with dpg.theme() as global_theme:
         dpg.add_theme_style(dpg.mvStyleVar_ChildRounding, 6)
         dpg.add_theme_style(dpg.mvStyleVar_WindowRounding, 0)
         
-        # PERBAIKAN PADDING: Dikecilkan lagi sedikit untuk ItemSpacing Y
-        dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, 10, 6) # Jarak vertikal dikurangi menjadi 6px
+        dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, 10, 6)
         dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, 10, 10) 
         dpg.add_theme_style(dpg.mvStyleVar_WindowRounding, 8)
 
@@ -189,13 +188,11 @@ with dpg.window(tag="PrimaryWindow", no_scrollbar=True, no_move=True, no_collaps
 
             dpg.add_spacer(height=10)
 
-            # Tinggi diturunkan ke 175px karena satu tombol dihapus
             with dpg.child_window(height=175, border=True, no_scrollbar=True):
                 dpg.add_spacer(height=5)
                 dpg.add_text("  MAIN MENU", color=(148, 163, 184))
                 dpg.add_separator()
                 dpg.add_spacer(height=8)
-                # Tombol Dashboard Analisis DIHAPUS dari sini
                 dpg.add_button(label=" Start Tracking", width=-1, height=35, callback=engine_control, user_data="START")
                 dpg.add_spacer(height=2)
                 dpg.add_button(label=" Terminate Sistem", width=-1, height=35, callback=engine_control, user_data="TERMINATE")
@@ -307,18 +304,14 @@ with dpg.window(tag="PrimaryWindow", no_scrollbar=True, no_move=True, no_collaps
                             dpg.add_separator()
                             dpg.add_spacer(height=10)
                             
-                            # Layout 2 Kolom untuk Area Analisis
                             with dpg.group(horizontal=True):
                                 
-                                # Kolom Kiri: Image Container untuk Matplotlib
                                 with dpg.child_window(width=640, height=480, border=True, no_scrollbar=True):
                                     dpg.add_spacer(height=10)
-                                    # Menampilkan tekstur plot di tengah (margin kiri manual jika diperlukan)
                                     with dpg.group(horizontal=True):
                                         dpg.add_spacer(width=20)
                                         dpg.add_image("plot_texture")
                                         
-                                # Kolom Kanan: Parameter & Statistik
                                 with dpg.child_window(width=-1, height=480, border=True, no_scrollbar=True):
                                     dpg.add_spacer(height=10)
                                     dpg.add_text(" RINGKASAN STATISTIK", color=(148, 163, 184))
