@@ -1,7 +1,7 @@
 <div align="center">
   <img src="assets/gestura-no_background.png" alt="Gestura Engine Logo" width="300">
   
-  # Gestura Engine v0.0.1
+  # Gestura Engine v 1.0.0
   
   **Real-time Hand Gesture Recognition & Expert System**
 </div>

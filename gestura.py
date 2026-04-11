@@ -62,6 +62,7 @@ def authenticate_user(sender, app_data, user_data):
     else:
         dpg.set_value("login_message", "[ERROR] Username atau Password salah!")
         dpg.configure_item("login_message", color=(248, 113, 113, 255))
+        
 
 def get_hand_points_mediapipe(frame):
     h, w, _ = frame.shape
@@ -162,6 +163,32 @@ def generate_analysis_plot():
 # -------------------
 # Dpg Setup & Main Loop
 # -------------------
+
+def build_register_window():
+    with dpg.window(tag="RegisterWindow", no_title_bar=True, no_resize=True, no_move=True):
+        dpg.add_spacer(height=200)
+        
+        
+        with dpg.child_window(width=450, height=350, border=True, no_scrollbar=True):
+            dpg.add_spacer(height=15)
+            dpg.add_text("REGISTER NEW USER", color=(26, 188, 156), tag="register_header")
+            dpg.add_spacer(height=10)
+            
+            with dpg.group(horizontal=True):
+                dpg.add_spacer(width=30)
+                with dpg.group():
+                    dpg.add_text("Username")
+                    dpg.add_input_text(tag="reg_username", width=300)
+                    
+                    dpg.add_spacer(height=5)
+                    dpg.add_text("Password")
+                    dpg.add_input_text(tag="reg_password", width=300, password=True)
+                    
+                    dpg.add_spacer(height=15)
+                    dpg.add_button(label=" CREATE ACCOUNT ", width=300, height=35, callback=lambda: log_message("[INFO] Fitur registrasi belum diimplementasikan.", color=(148, 163, 184)))
+                    
+                    dpg.add_spacer(height=10)
+                    dpg.add_text(" ", tag="register_message", color=(148, 163, 184, 255))
 
 def build_login_window():
     with dpg.window(tag="LoginWindow", no_title_bar=True, no_resize=True, no_move=True):
