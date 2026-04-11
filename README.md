@@ -70,11 +70,24 @@ Gestura/
    ```
 
 3. **Install dependencies**
+   
+   **Option A: Using requirements.txt (Recommended)**
+   
+   The `requirements.txt` file contains all necessary Python packages with their compatible versions. Install them with a single command:
    ```bash
    pip install -r requirements.txt
    ```
    
-   Or manually:
+   This will automatically install all dependencies listed in the file, including:
+   - opencv-python
+   - mediapipe
+   - dearpygui
+   - numpy
+   - pandas
+   
+   **Option B: Manual installation**
+   
+   If you prefer to install packages individually:
    ```bash
    pip install opencv-python mediapipe dearpygui numpy pandas
    ```
