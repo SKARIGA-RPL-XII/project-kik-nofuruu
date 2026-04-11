@@ -1,6 +1,10 @@
-# Gestura Engine v0.0.1
-
-**Real-time Hand Gesture Recognition & Expert System**
+<div align="center">
+  <img src="assets/gestura-default.png" alt="Gestura Engine Logo" width="200">
+  
+  # Gestura Engine v0.0.1
+  
+  **Real-time Hand Gesture Recognition & Expert System**
+</div>
 
 A computer vision-based gesture recognition system designed to detect and classify hand signs (Sign Language) using 21 hand landmarks. Gestura integrates **MediaPipe** for feature extraction and a custom **K-Nearest Neighbors (KNN)** algorithm for real-time classification with optimized performance.
 
