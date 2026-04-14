@@ -14,16 +14,14 @@ import engine
 from engine import GestureEngine
 
 
-
 # -------------------
-# Global Variables & State 
+# Global Variables & State
 # -------------------
 engine_running = False 
 cap = None 
 plot_width = 600
 plot_height = 400
 plot_texture_data = np.full((plot_height, plot_width, 4), 0.08, dtype=np.float32)
-
 
 
 # -------------------
@@ -41,7 +39,6 @@ hands = mp_hands.Hands(
 
 cam_width = 640
 cam_height = 480
-
 
 
 # -------------------
@@ -62,7 +59,7 @@ def authenticate_user(sender, app_data, user_data):
     else:
         dpg.set_value("login_message", "[ERROR] Username atau Password salah!")
         dpg.configure_item("login_message", color=(248, 113, 113, 255))
-        
+
 
 def get_hand_points_mediapipe(frame):
     h, w, _ = frame.shape
@@ -124,8 +121,8 @@ def engine_control(sender, app_data, user_data):
         dpg.set_value("status_text", "DISCONNECTED")
         dpg.configure_item("status_text", color=(248, 113, 113))
         log_message("[INFO] All systems released safely.", color=(148, 163, 184))
-        
-        
+
+
 def generate_analysis_plot():
         plt.style.use('dark_background')
         fig, ax = plt.subplots(figsize=(6, 4), dpi=100) # 600x400 px
@@ -157,70 +154,140 @@ def generate_analysis_plot():
         img_array = np.array(img, dtype=np.float32) / 255.0
         
         dpg.set_value("plot_texture", img_array.flatten())
-        
-        
-        
+
+
 # -------------------
 # Dpg Setup & Main Loop
 # -------------------
 
 def build_register_window():
-    with dpg.window(tag="RegisterWindow", no_title_bar=True, no_resize=True, no_move=True):
-        dpg.add_spacer(height=200)
-        
-        
-        with dpg.child_window(width=450, height=350, border=True, no_scrollbar=True):
-            dpg.add_spacer(height=15)
-            dpg.add_text("REGISTER NEW USER", color=(26, 188, 156), tag="register_header")
-            dpg.add_spacer(height=10)
-            
-            with dpg.group(horizontal=True):
-                dpg.add_spacer(width=30)
-                with dpg.group():
-                    dpg.add_text("Username")
-                    dpg.add_input_text(tag="reg_username", width=300)
-                    
-                    dpg.add_spacer(height=5)
-                    dpg.add_text("Password")
-                    dpg.add_input_text(tag="reg_password", width=300, password=True)
-                    
-                    dpg.add_spacer(height=15)
-                    dpg.add_button(label=" CREATE ACCOUNT ", width=300, height=35, callback=lambda: log_message("[INFO] Fitur registrasi belum diimplementasikan.", color=(148, 163, 184)))
-                    
-                    dpg.add_spacer(height=10)
-                    dpg.add_text(" ", tag="register_message", color=(148, 163, 184, 255))
+    with dpg.window(
+        tag="RegisterWindow",
+        show=False,
+        no_title_bar=True,
+        no_resize=True,
+        no_move=True,
+    ):
+        dpg.add_spacer(height=70)
+
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=435) 
+            with dpg.child_window(width=400, height=560, border=True, no_scrollbar=True, no_scroll_with_mouse=True):
+                
+                # --- [ HEADER IMAGE ] ---
+                with dpg.group(horizontal=True):
+                    dpg.add_spacer(width=100)
+                    dpg.add_image("image_tag")
+
+                dpg.add_separator()
+                dpg.add_spacer(height=10)
+                
+                # --- [ TEXT HEADER ] ---
+                with dpg.group(horizontal=True):
+                    dpg.add_spacer(width=40) 
+                    dpg.add_text("REGISTER NEW USER", color=(26, 188, 156), tag="register_header")
+
+                dpg.add_spacer(height=5)
+                dpg.add_separator()
+                dpg.add_spacer(height=20)
+
+                # --- [ FORM INPUT & BUTTONS ] ---
+                with dpg.group(horizontal=True):
+                    dpg.add_spacer(width=40) 
+                    with dpg.group():
+                        dpg.add_text("Username", color=(148, 163, 184))
+                        dpg.add_input_text(tag="reg_username", width=300)
+
+                        dpg.add_spacer(height=8)
+                        dpg.add_text("Password", color=(148, 163, 184))
+                        dpg.add_input_text(tag="reg_password", width=300, password=True)
+
+                        dpg.add_spacer(height=25)
+                        
+                        # Fungsi helper kecil untuk menampilkan pesan UI saat diklik
+                        def dummy_register_callback():
+                            dpg.set_value("register_message", "[INFO] Fitur registrasi belum aktif.")
+                            dpg.configure_item("register_message", color=(250, 204, 21, 255)) # Warna kuning/warning
+                            
+                        dpg.add_button(
+                            label=" CREATE ACCOUNT ", 
+                            width=300, 
+                            height=38, 
+                            callback=dummy_register_callback
+                        )
+                        
+                        dpg.add_spacer(height=8)
+                        
+                        # Tombol untuk kembali ke menu Login
+                        def back_to_login():
+                            dpg.set_value("register_message", " ") 
+                            dpg.hide_item("RegisterWindow")
+                            dpg.show_item("LoginWindow")
+                            dpg.set_primary_window("LoginWindow", True)
+                            
+                        dpg.add_button(
+                            label=" BACK TO LOGIN ", 
+                            width=300, 
+                            height=38, 
+                            callback=back_to_login
+                        )
+
+                        dpg.add_spacer(height=15)
+                        dpg.add_text(" ", tag="register_message", color=(148, 163, 184, 255))
 
 def build_login_window():
     with dpg.window(tag="LoginWindow", no_title_bar=True, no_resize=True, no_move=True):
-        dpg.add_spacer(height=200)
-        
+        dpg.add_spacer(height=80) 
+
         with dpg.group(horizontal=True):
-            dpg.add_spacer(width=450) 
-            
-            # 1. Ubah height dari 300 menjadi 350 agar tidak terpotong
-            with dpg.child_window(width=380, height=350, border=True, no_scrollbar=True):
-                dpg.add_spacer(height=15)
+            dpg.add_spacer(width=435) 
+
+            with dpg.child_window(width=400, height=550, border=True, no_scrollbar=True, no_scroll_with_mouse=True):
                 
-                # ... (kode header dan form lainnya tetap sama) ...
-                
+                # --- [ HEADER IMAGE ] ---
                 with dpg.group(horizontal=True):
-                    dpg.add_spacer(width=30)
+                    dpg.add_spacer(width=100)
+                    dpg.add_image("image_tag")
+                
+                dpg.add_separator()
+                dpg.add_spacer(height=20)
+
+                # --- [ FORM INPUT & BUTTONS ] ---
+                with dpg.group(horizontal=True):
+                    dpg.add_spacer(width=40) 
                     with dpg.group():
-                        dpg.add_text("Username")
+                        dpg.add_text("Username", color=(148, 163, 184))
                         dpg.add_input_text(tag="username", width=300)
-                        
-                        dpg.add_spacer(height=5)
-                        dpg.add_text("Password")
+
+                        dpg.add_spacer(height=8)
+                        dpg.add_text("Password", color=(148, 163, 184))
                         dpg.add_input_text(tag="password", width=300, password=True, on_enter=True, callback=authenticate_user)
+
+                        dpg.add_spacer(height=25)
+                        dpg.add_button(
+                            label=" LOGIN ",
+                            width=300,
+                            height=38,
+                            callback=authenticate_user,
+                        )
+                        dpg.add_spacer(height=8)
                         
+                        # --- [ FUNGSI TRANSISI KE REGISTER ] ---
+                        def go_to_register():
+                            dpg.set_value("login_message", " ") 
+                            dpg.hide_item("LoginWindow")
+                            dpg.show_item("RegisterWindow")
+                            dpg.set_primary_window("RegisterWindow", True)
+                            
+                        dpg.add_button(
+                            label=" REGISTER ",
+                            width=300,
+                            height=38,
+                            callback=go_to_register,
+                        )
+
                         dpg.add_spacer(height=15)
-                        dpg.add_button(label=" SECURE LOGIN ", width=300, height=35, callback=authenticate_user)
-                        
-                        dpg.add_spacer(height=10)
-                        
-                        # 2. Beri spasi kosong " " (bukan string kosong "") 
-                        # 3. Tambahkan 255 pada format warna dasar
-                        dpg.add_text(" ", tag="login_message", color=(148, 163, 184, 255))  
+                        dpg.add_text(" ", tag="login_message", color=(148, 163, 184, 255))
 
 def build_main_windows():
     with dpg.window(tag="PrimaryWindow", show=False, no_scrollbar=True, no_move=True, no_collapse=True, no_title_bar=True):
@@ -387,13 +454,27 @@ with dpg.texture_registry(show=False):
         format=dpg.mvFormat_Float_rgba,
         tag="camera_texture",
     )
-    
+
     dpg.add_raw_texture(
         width=plot_width,
         height=plot_height,
         default_value=plot_texture_data,
         format=dpg.mvFormat_Float_rgba,
         tag="plot_texture",
+    )
+
+# Load login header image - Ukuran diperbesar
+    logo_size = 160
+    login_img = Image.open("assets/gestura-no_background.png").convert("RGBA")
+    login_img_resized = login_img.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
+    login_img_array = np.array(login_img_resized, dtype=np.float32) / 255.0
+
+    dpg.add_raw_texture(
+        width=logo_size,
+        height=logo_size,
+        default_value=login_img_array.flatten(),
+        format=dpg.mvFormat_Float_rgba,
+        tag="image_tag",
     )
 
 with dpg.theme() as global_theme:
@@ -425,6 +506,7 @@ with dpg.theme() as global_theme:
 
 build_login_window()
 build_main_windows()
+build_register_window()
 
 
 dpg.bind_theme(global_theme)
@@ -439,8 +521,6 @@ except Exception as e:
     print(f"Warning: Failed to load custom icons. {e}")
 dpg.show_viewport()
 dpg.set_primary_window("LoginWindow", True)
-
-
 
 
 # -------------------
