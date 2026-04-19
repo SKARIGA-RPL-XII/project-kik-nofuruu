@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/gestura-no_background.png" alt="Gestura Engine Logo" width="250">
+  <img src="src/gestura/assets/gestura-no_background.png" alt="Gestura Engine Logo" width="250">
   
   # Gestura Engine v 1.0.0
   
