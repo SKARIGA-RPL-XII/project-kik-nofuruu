@@ -9,9 +9,9 @@ import time
 import matplotlib.pyplot as plt
 import seaborn as sns 
 import io 
+import ctypes
 from PIL import Image
-import engine 
-from engine import GestureEngine
+from gestura import DatabaseManager, GestureEngine
 
 
 # -------------------
@@ -125,7 +125,7 @@ def engine_control(sender, app_data, user_data):
 
 def generate_analysis_plot():
         plt.style.use('dark_background')
-        fig, ax = plt.subplots(figsize=(6, 4), dpi=100) # 600x400 px
+        fig, ax = plt.subplots(figsize=(6, 4), dpi=100) 
         
         bg_color = '#121E23' 
         fig.patch.set_facecolor(bg_color)
@@ -145,7 +145,7 @@ def generate_analysis_plot():
 
         buf = io.BytesIO()
         fig.savefig(buf, format='rgba', bbox_inches='tight', facecolor=fig.get_facecolor())
-        plt.close(fig) # Penting agar memori tidak bocor!
+        plt.close(fig) 
         
         buf.seek(0)
         img = Image.open(buf)
@@ -154,7 +154,18 @@ def generate_analysis_plot():
         img_array = np.array(img, dtype=np.float32) / 255.0
         
         dpg.set_value("plot_texture", img_array.flatten())
-
+        
+def set_title_bar_color(window_title, r, g, b):
+    try:
+        hwnd = ctypes.windll.user32.FindWindowW(None, window_title)
+        if hwnd:
+            DWMWA_CAPTION_COLOR = 35 
+            color = ctypes.c_int((b << 16) | (g << 8) | r)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd, DWMWA_CAPTION_COLOR, ctypes.byref(color), ctypes.sizeof(color)
+            )
+    except Exception as e:
+        print(f"Warning: Failed to set custom title bar color. {e}")
 
 # -------------------
 # Dpg Setup & Main Loop
@@ -174,7 +185,6 @@ def build_register_window():
             dpg.add_spacer(width=435) 
             with dpg.child_window(width=400, height=560, border=True, no_scrollbar=True, no_scroll_with_mouse=True):
                 
-                # --- [ HEADER IMAGE ] ---
                 with dpg.group(horizontal=True):
                     dpg.add_spacer(width=100)
                     dpg.add_image("image_tag")
@@ -182,7 +192,6 @@ def build_register_window():
                 dpg.add_separator()
                 dpg.add_spacer(height=10)
                 
-                # --- [ TEXT HEADER ] ---
                 with dpg.group(horizontal=True):
                     dpg.add_spacer(width=40) 
                     dpg.add_text("REGISTER NEW USER", color=(26, 188, 156), tag="register_header")
@@ -191,7 +200,6 @@ def build_register_window():
                 dpg.add_separator()
                 dpg.add_spacer(height=20)
 
-                # --- [ FORM INPUT & BUTTONS ] ---
                 with dpg.group(horizontal=True):
                     dpg.add_spacer(width=40) 
                     with dpg.group():
@@ -204,7 +212,6 @@ def build_register_window():
 
                         dpg.add_spacer(height=25)
                         
-                        # Fungsi helper kecil untuk menampilkan pesan UI saat diklik
                         def dummy_register_callback():
                             dpg.set_value("register_message", "[INFO] Fitur registrasi belum aktif.")
                             dpg.configure_item("register_message", color=(250, 204, 21, 255)) # Warna kuning/warning
@@ -218,7 +225,6 @@ def build_register_window():
                         
                         dpg.add_spacer(height=8)
                         
-                        # Tombol untuk kembali ke menu Login
                         def back_to_login():
                             dpg.set_value("register_message", " ") 
                             dpg.hide_item("RegisterWindow")
@@ -244,7 +250,6 @@ def build_login_window():
 
             with dpg.child_window(width=400, height=550, border=True, no_scrollbar=True, no_scroll_with_mouse=True):
                 
-                # --- [ HEADER IMAGE ] ---
                 with dpg.group(horizontal=True):
                     dpg.add_spacer(width=100)
                     dpg.add_image("image_tag")
@@ -252,7 +257,6 @@ def build_login_window():
                 dpg.add_separator()
                 dpg.add_spacer(height=20)
 
-                # --- [ FORM INPUT & BUTTONS ] ---
                 with dpg.group(horizontal=True):
                     dpg.add_spacer(width=40) 
                     with dpg.group():
@@ -272,7 +276,6 @@ def build_login_window():
                         )
                         dpg.add_spacer(height=8)
                         
-                        # --- [ FUNGSI TRANSISI KE REGISTER ] ---
                         def go_to_register():
                             dpg.set_value("login_message", " ") 
                             dpg.hide_item("LoginWindow")
@@ -463,9 +466,8 @@ with dpg.texture_registry(show=False):
         tag="plot_texture",
     )
 
-# Load login header image - Ukuran diperbesar
     logo_size = 160
-    login_img = Image.open("assets/gestura-no_background.png").convert("RGBA")
+    login_img = Image.open("src/gestura/assets/gestura-no_background.png").convert("RGBA")
     login_img_resized = login_img.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
     login_img_array = np.array(login_img_resized, dtype=np.float32) / 255.0
 
@@ -479,30 +481,30 @@ with dpg.texture_registry(show=False):
 
 with dpg.theme() as global_theme:
     with dpg.theme_component(dpg.mvAll):
-        dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (10, 20, 24), category=dpg.mvThemeCat_Core)
-        dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (18, 30, 35), category=dpg.mvThemeCat_Core)
-        dpg.add_theme_color(dpg.mvThemeCol_Border, (35, 55, 60), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_WindowBg, (28, 28, 28), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (40, 40, 40), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_Border, (70, 70, 70), category=dpg.mvThemeCat_Core)
         
         dpg.add_theme_color(dpg.mvThemeCol_Button, (22, 160, 133), category=dpg.mvThemeCat_Core)
         dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (26, 188, 156), category=dpg.mvThemeCat_Core)
         dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (18, 130, 108), category=dpg.mvThemeCat_Core)
         
-        dpg.add_theme_color(dpg.mvThemeCol_Header, (30, 60, 65), category=dpg.mvThemeCat_Core)
-        dpg.add_theme_color(dpg.mvThemeCol_HeaderHovered, (40, 80, 85), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_Header, (55, 55, 55), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_HeaderHovered, (75, 75, 75), category=dpg.mvThemeCat_Core)
         dpg.add_theme_color(dpg.mvThemeCol_HeaderActive, (26, 188, 156), category=dpg.mvThemeCat_Core)
         
         dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, (26, 188, 156), category=dpg.mvThemeCat_Core)
-        dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (10, 20, 24), category=dpg.mvThemeCat_Core)
-        dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered, (25, 45, 50), category=dpg.mvThemeCat_Core)
-        dpg.add_theme_color(dpg.mvThemeCol_Text, (230, 240, 235), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (20, 20, 20), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered, (45, 45, 45), category=dpg.mvThemeCat_Core)
+        
+        dpg.add_theme_color(dpg.mvThemeCol_Text, (230, 230, 230), category=dpg.mvThemeCat_Core)
         
         dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 4)
         dpg.add_theme_style(dpg.mvStyleVar_ChildRounding, 6)
-        dpg.add_theme_style(dpg.mvStyleVar_WindowRounding, 0)
+        dpg.add_theme_style(dpg.mvStyleVar_WindowRounding, 8) 
         
         dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, 10, 6)
-        dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, 10, 10) 
-        dpg.add_theme_style(dpg.mvStyleVar_WindowRounding, 8)
+        dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, 10, 10)
 
 build_login_window()
 build_main_windows()
@@ -510,18 +512,20 @@ build_register_window()
 
 
 dpg.bind_theme(global_theme)
-dpg.create_viewport(title="Gestura Engine - Admin Dashboard", width=1280, height=800, resizable=False, decorated=True)
+app_title = "Gestura"
+dpg.create_viewport(title=app_title, width=1280, height=800, resizable=False, decorated=True)
+
 dpg.setup_dearpygui()
+
 try : 
-    dpg.set_viewport_small_icon("assets/gestura-single-titlebar.ico")
-    
-    dpg.set_viewport_large_icon("assets/gestura-single-titlebar.ico")
-    
+    dpg.set_viewport_small_icon("src/gestura/assets/gestura-single-titlebar.ico")
+    dpg.set_viewport_large_icon("src/gestura/assets/gestura-single-titlebar.ico")
 except Exception as e:
     print(f"Warning: Failed to load custom icons. {e}")
+    
 dpg.show_viewport()
 dpg.set_primary_window("LoginWindow", True)
-
+set_title_bar_color(app_title, 10, 10, 10)
 
 # -------------------
 # Helper Render Loop Camera Processing
