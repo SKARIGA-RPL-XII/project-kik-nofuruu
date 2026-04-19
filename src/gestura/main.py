@@ -11,7 +11,7 @@ import seaborn as sns
 import io 
 import ctypes
 from PIL import Image
-from gestura import DatabaseManager, GestureEngine
+from gestura import DatabaseManager, GestureEngine, AuthController
 
 
 # -------------------
@@ -22,7 +22,8 @@ cap = None
 plot_width = 600
 plot_height = 400
 plot_texture_data = np.full((plot_height, plot_width, 4), 0.08, dtype=np.float32)
-
+db = DatabaseManager()
+auth = AuthController(db)
 
 # -------------------
 # Mediapipe Setup
@@ -49,8 +50,10 @@ def authenticate_user(sender, app_data, user_data):
     username = dpg.get_value("username")
     password = dpg.get_value("password")
     
-    if username == "admin" and password == "password123":
-        dpg.set_value("login_message", "[INFO] Login Berhasil! Memuat Workspace...")
+    is_valid = auth.authenticate(username, password)
+    
+    if is_valid:
+        dpg.set_value("login_message", "[SUCCESS] Login berhasil. Memuat workspace...")
         dpg.configure_item("login_message", color=(74, 222, 128, 255))
         
         dpg.hide_item("LoginWindow")
@@ -59,6 +62,35 @@ def authenticate_user(sender, app_data, user_data):
     else:
         dpg.set_value("login_message", "[ERROR] Username atau Password salah!")
         dpg.configure_item("login_message", color=(248, 113, 113, 255))
+        
+def register_user(sender, app_data, user_data):
+    username = dpg.get_value("reg_username")
+    password = dpg.get_value("reg_password")
+    confirm_password = dpg.get_value("reg_confirm_password")
+    
+    if not username or not password:
+        dpg.set_value("register_message", "[ERROR] Username dan Password tidak boleh kosong!")
+        dpg.configure_item("register_message", color=(248, 113, 113, 255))
+        return
+    
+    if password != confirm_password:
+        dpg.set_value("register_message", "[ERROR] Password dan Konfirmasi tidak cocok!")
+        dpg.configure_item("register_message", color=(248, 113, 113, 255))
+        return
+
+    is_success = auth.register_user(username, password)
+    
+    if is_success:
+        dpg.set_value("register_message", "[INFO] Registrasi Berhasil! Silakan Login.")
+        dpg.configure_item("register_message", color=(74, 222, 128, 255)) # Hijau
+        
+        dpg.set_value("reg_username", "")
+        dpg.set_value("reg_password", "")
+        dpg.set_value("reg_confirm_password", "")
+    else:
+        dpg.set_value("register_message", "[ERROR] Username sudah terdaftar!")
+        dpg.configure_item("register_message", color=(248, 113, 113, 255)) # Merah
+
 
 
 def get_hand_points_mediapipe(frame):
@@ -179,11 +211,11 @@ def build_register_window():
         no_resize=True,
         no_move=True,
     ):
-        dpg.add_spacer(height=70)
+        dpg.add_spacer(height=40)
 
         with dpg.group(horizontal=True):
             dpg.add_spacer(width=435) 
-            with dpg.child_window(width=400, height=560, border=True, no_scrollbar=True, no_scroll_with_mouse=True):
+            with dpg.child_window(width=400, height=620, border=True, no_scrollbar=True, no_scroll_with_mouse=True):
                 
                 with dpg.group(horizontal=True):
                     dpg.add_spacer(width=100)
@@ -209,18 +241,18 @@ def build_register_window():
                         dpg.add_spacer(height=8)
                         dpg.add_text("Password", color=(148, 163, 184))
                         dpg.add_input_text(tag="reg_password", width=300, password=True)
+                        
+                        dpg.add_spacer(height=8)
+                        dpg.add_text("Confirm Password", color=(148, 163, 184))
+                        dpg.add_input_text(tag="reg_confirm_password", width=300, password=True)
 
                         dpg.add_spacer(height=25)
-                        
-                        def dummy_register_callback():
-                            dpg.set_value("register_message", "[INFO] Fitur registrasi belum aktif.")
-                            dpg.configure_item("register_message", color=(250, 204, 21, 255)) # Warna kuning/warning
                             
                         dpg.add_button(
                             label=" CREATE ACCOUNT ", 
                             width=300, 
                             height=38, 
-                            callback=dummy_register_callback
+                            callback=register_user
                         )
                         
                         dpg.add_spacer(height=8)
