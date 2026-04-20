@@ -31,7 +31,7 @@ class GestureEngine:
         self.df = pd.read_csv(self.data_path, sep=';')
         
         # ==================================================
-        # 2. PRE-PROCESSING KELAS BERAT (Sesuai main.ipynb)
+        # 2. PRE-PROCESSING DATA
         # ==================================================
         self.df = self.df.loc[:, ~self.df.columns.str.contains('^Unnamed')]
         
@@ -49,7 +49,7 @@ class GestureEngine:
         self.df['char'] = self.df['char'].str.upper()
         
         # ==================================================
-        # 3. ENCODING (Mencegah Error dan Menjaga Presisi)
+        # 3. ENCODING DATA
         # ==================================================
         unique_chars = sorted(self.df['char'].unique())
         
@@ -82,17 +82,14 @@ class GestureEngine:
 
     @staticmethod
     def preprocess_single_hand(A):
-        # 1. Translasi (wrist = titik 0)
         A = A.copy()
         coords = A.reshape(-1, 2)
         coords -= coords[0]
         
-        # 2. Normalisasi skala
         max_dist = np.max(np.linalg.norm(coords, axis=1))
         if max_dist != 0:
             coords /= max_dist
             
-        # 3. Normalisasi rotasi
         ref = coords[9]
         angle = np.arctan2(ref[1], ref[0])
         rot = np.array([[np.cos(-angle), -np.sin(-angle)], [np.sin(-angle), np.cos(-angle)]])
@@ -104,10 +101,8 @@ class GestureEngine:
         """Memproses landmark baru dan mengembalikan huruf tebakan."""
         A = self.preprocess_single_hand(landmarks)
         
-        # Hasil KNN ini berbentuk integer (Angka Encoded)
         pred = self.classifier.predict(A)
         pred_label = int(pred[0])
         
-        # Kita Decode/Balikkan angkanya menjadi Teks/Huruf kembali
         result_char = self.int_to_char[pred_label]
         return result_char
