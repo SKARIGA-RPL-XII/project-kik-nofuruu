@@ -50,8 +50,6 @@ class DatabaseManager:
     
     def auth_user(self, username):
         """Mengambil password untuk autentikasi user aktif."""
-        # Sangat disarankan menambahkan pengecekan isactive = 1
-        # agar user yang sudah di-nonaktifkan tidak bisa login
         cursor = self.conn.execute(
             "SELECT password FROM msuser WHERE username = ? AND isactive = 1", 
             (username,)
@@ -60,12 +58,10 @@ class DatabaseManager:
     
     def create_user(self, username, password_hash):
         """Membuat user baru dengan data audit yang terisi otomatis."""
-        # Generate waktu saat ini (contoh: 2026-04-20 14:30:00)
         waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
-        # Default value untuk kolom tambahan
-        isactive = 1          # 1 = Aktif, 0 = Non-aktif
-        created_by = username # Mencatat siapa yang membuat (bisa juga diisi "system")
+        isactive = 1          
+        created_by = username 
 
         try:
             query = """
@@ -73,7 +69,6 @@ class DatabaseManager:
                 (username, password, createdby, updatedby, createddate, updateddate, isactive) 
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """
-            # Sesuaikan urutan value dengan tanda tanya (?) di atas
             values = (username, password_hash, created_by, created_by, waktu_sekarang, waktu_sekarang, isactive)
             
             self.conn.execute(query, values)
@@ -81,6 +76,5 @@ class DatabaseManager:
             return True
             
         except sqlite3.IntegrityError as e:
-            # Opsional: Print error ke terminal untuk memudahkan debugging di masa depan
             print(f"[DEBUG] Gagal insert ke database: {e}")
             return False

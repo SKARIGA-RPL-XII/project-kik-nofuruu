@@ -12,6 +12,8 @@ import io
 import ctypes
 from PIL import Image
 from gestura import DatabaseManager, GestureEngine, AuthController
+from gestura.utils.audio_player import AudioPlayer
+from collections import deque, Counter
 
 
 # -------------------
@@ -24,6 +26,7 @@ plot_height = 400
 plot_texture_data = np.full((plot_height, plot_width, 4), 0.08, dtype=np.float32)
 db = DatabaseManager()
 auth = AuthController(db)
+gesture_engine = GestureEngine()
 
 # -------------------
 # Mediapipe Setup
@@ -559,18 +562,22 @@ dpg.show_viewport()
 dpg.set_primary_window("LoginWindow", True)
 set_title_bar_color(app_title, 10, 10, 10)
 
-# -------------------
-# Helper Render Loop Camera Processing
-# -------------------
+# ==========================================
+# Variabel Helper di Luar Loop
+# ==========================================
 capture_cooldown = 0
+prediction_buffer = deque(maxlen=15) 
 
+# ==========================================
+# MAIN LOOP APLIKASI
+# ==========================================
 while dpg.is_dearpygui_running():
     if engine_running and cap is not None:
         ret, cap_frame = cap.read()
         if ret:
             cap_frame = cv2.flip(cap_frame, 1)
-            points, hand_landmarks = get_hand_points_mediapipe(cap_frame)
             
+            points, hand_landmarks = get_hand_points_mediapipe(cap_frame)
             show_landmarks = dpg.get_value("show_lm_cb")
             
             if points is not None:
@@ -588,14 +595,46 @@ while dpg.is_dearpygui_running():
                     dpg.set_value(f"t_x_{i}", f"{lm.x:.3f}")
                     dpg.set_value(f"t_y_{i}", f"{lm.y:.3f}")
 
-                if dpg.is_key_down(67) and capture_cooldown == 0:
-                    A = points.flatten().reshape(1, -1)
-                    GestureEngine.define_conture(A)
-                    capture_cooldown = 15 
+                if capture_cooldown == 0:
+                    A = points.flatten().reshape(1, -1)                    
+                    hasil_huruf = gesture_engine.predict_gesture(A)
+                    
+                    prediction_buffer.append(hasil_huruf)
+                    
+                    if len(prediction_buffer) == 15:
+                        huruf_terbanyak, jumlah_muncul = Counter(prediction_buffer).most_common(1)[0]
+                        
+                        if jumlah_muncul >= 12:
+                            print(f"[PREDIKSI STABIL] Gestur: {huruf_terbanyak} (Akurasi: {jumlah_muncul}/15)")
+                            
+                            if dpg.does_item_exist("HurufPopup"):
+                                dpg.delete_item("HurufPopup")
+                            
+                            with dpg.window(tag="HurufPopup", no_title_bar=True, pos=[300, 200], no_resize=True):
+                                dpg.add_text(f"  {huruf_terbanyak}  ", color=(26, 188, 156))
+                            
+                            try:
+                                AudioPlayer.play_alphabet(huruf_terbanyak)
+                            except Exception as e:
+                                print(f"Gagal memutar audio: {e}")
+                            
+                            prediction_buffer.clear()
+                            
+                            capture_cooldown = 60
+
+            # ==========================================
+            # PENGATURAN WAKTU COOLDOWN & PENGHAPUSAN POP-UP
+            # ==========================================
+            if capture_cooldown == 30:
+                if dpg.does_item_exist("HurufPopup"):
+                    dpg.delete_item("HurufPopup")
 
             if capture_cooldown > 0:
                 capture_cooldown -= 1
 
+            # ==========================================
+            # RENDER GAMBAR KE DEARPYGUI
+            # ==========================================
             rgba_frame = cv2.cvtColor(cap_frame, cv2.COLOR_BGR2RGBA)
             if rgba_frame.shape[1] != cam_width or rgba_frame.shape[0] != cam_height:
                  rgba_frame = cv2.resize(rgba_frame, (cam_width, cam_height))
@@ -604,7 +643,7 @@ while dpg.is_dearpygui_running():
             dpg.set_value("camera_texture", texture_data.flatten()) 
 
     dpg.render_dearpygui_frame()
-
+    
 if cap is not None:
     cap.release()
 hands.close()
