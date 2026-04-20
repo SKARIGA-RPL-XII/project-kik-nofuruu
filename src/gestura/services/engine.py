@@ -33,24 +33,19 @@ class GestureEngine:
         # ==================================================
         # 2. PRE-PROCESSING KELAS BERAT (Sesuai main.ipynb)
         # ==================================================
-        # Hapus kolom Unnamed
         self.df = self.df.loc[:, ~self.df.columns.str.contains('^Unnamed')]
         
-        # Pastikan semua koordinat adalah numerik
         coord_cols = self.df.columns.drop('char')
         self.df[coord_cols] = self.df[coord_cols].apply(pd.to_numeric, errors='coerce')
         
-        # Tangani Missing Value (Isi dengan rata-rata sesuai Cell 22)
         for col in coord_cols:
             self.df[col] = self.df[col].fillna(self.df[col].mean())
             
-        # Hapus data duplikat (Sesuai Cell 23)
         self.df = self.df.drop_duplicates()
         
-        # Bersihkan target (Kolom 'char') dari data sampah (Sesuai Cell 30)
         self.df = self.df[self.df['char'].notna()]
         self.df['char'] = self.df['char'].astype(str)
-        self.df = self.df[self.df['char'].str.match(r'^[A-Za-z]$')] # Pastikan murni A-Z
+        self.df = self.df[self.df['char'].str.match(r'^[A-Za-z]$')]
         self.df['char'] = self.df['char'].str.upper()
         
         # ==================================================
@@ -58,7 +53,6 @@ class GestureEngine:
         # ==================================================
         unique_chars = sorted(self.df['char'].unique())
         
-        # Buat dictionary untuk encode (Huruf ke Angka) dan decode (Angka ke Huruf)
         self.char_to_int = {char: idx for idx, char in enumerate(unique_chars)}
         self.int_to_char = {idx: char for char, idx in self.char_to_int.items()}
         

@@ -9,6 +9,7 @@ import time
 import seaborn as sns 
 import io 
 import ctypes
+import threading
 from PIL import Image
 
 import matplotlib 
@@ -29,6 +30,7 @@ cap = None
 plot_width = 600
 plot_height = 400
 plot_texture_data = np.full((plot_height, plot_width, 4), 0.08, dtype=np.float32)
+texture_data = np.full((480, 640, 4), 0.08, dtype=np.float32)
 db = DatabaseManager()
 auth = AuthController(db)
 gesture_engine = GestureEngine()
@@ -53,52 +55,50 @@ cam_height = 480
 # -------------------
 # Functions
 # -------------------
-
 def authenticate_user(sender, app_data, user_data):
     username = dpg.get_value("username")
     password = dpg.get_value("password")
-    
+
     is_valid = auth.authenticate(username, password)
-    
+
     if is_valid:
         dpg.set_value("login_message", "[SUCCESS] Login berhasil. Memuat workspace...")
         dpg.configure_item("login_message", color=(74, 222, 128, 255))
-        
+
         dpg.hide_item("LoginWindow")
         dpg.show_item("PrimaryWindow")
         dpg.set_primary_window("PrimaryWindow", True)
     else:
         dpg.set_value("login_message", "[ERROR] Username atau Password salah!")
         dpg.configure_item("login_message", color=(248, 113, 113, 255))
-        
+
 def register_user(sender, app_data, user_data):
     username = dpg.get_value("reg_username")
     password = dpg.get_value("reg_password")
     confirm_password = dpg.get_value("reg_confirm_password")
-    
+
     if not username or not password:
         dpg.set_value("register_message", "[ERROR] Username dan Password tidak boleh kosong!")
         dpg.configure_item("register_message", color=(248, 113, 113, 255))
         return
-    
+
     if password != confirm_password:
         dpg.set_value("register_message", "[ERROR] Password dan Konfirmasi tidak cocok!")
         dpg.configure_item("register_message", color=(248, 113, 113, 255))
         return
 
     is_success = auth.register_user(username, password)
-    
+
     if is_success:
         dpg.set_value("register_message", "[INFO] Registrasi Berhasil! Silakan Login.")
-        dpg.configure_item("register_message", color=(74, 222, 128, 255)) # Hijau
-        
+        dpg.configure_item("register_message", color=(74, 222, 128, 255))
+
         dpg.set_value("reg_username", "")
         dpg.set_value("reg_password", "")
         dpg.set_value("reg_confirm_password", "")
     else:
         dpg.set_value("register_message", "[ERROR] Username sudah terdaftar!")
-        dpg.configure_item("register_message", color=(248, 113, 113, 255)) # Merah
-
+        dpg.configure_item("register_message", color=(248, 113, 113, 255))
 
 
 def get_hand_points_mediapipe(frame):
@@ -206,11 +206,11 @@ def update_plot_callback(sender, app_data, user_data):
     """Callback khusus tombol untuk memperbarui gambar grafik di layar."""
     print("[INFO] Merender ulang grafik EDA...")    
     img_array_flatten = generate_analysis_plot(gesture_engine.df, plot_width=600, plot_height=400)
-    
+
     dpg.set_value("plot_texture", img_array_flatten)
-    
+
     print("[INFO] Grafik berhasil diperbarui.")
-        
+
 def set_title_bar_color(window_title, r, g, b):
     try:
         hwnd = ctypes.windll.user32.FindWindowW(None, window_title)
@@ -223,6 +223,95 @@ def set_title_bar_color(window_title, r, g, b):
     except Exception as e:
         print(f"Warning: Failed to set custom title bar color. {e}")
 
+
+def switch_page_with_loading(target_page_tag):
+    """Fungsi untuk berpindah halaman dengan animasi loading."""
+    dpg.configure_item("LoadingOverlay", show=True)
+    dpg.set_value("LoadingProgressBar", 0.0)
+
+    def transition_process():
+        for i in range(1, 51):
+            time.sleep(0.01)
+            dpg.set_value("LoadingProgressBar", i / 50.0)
+
+        all_pages = ["MainWindow", "RegisterWindow", "LoginWindow"]
+        for page in all_pages:
+            if dpg.does_item_exist(page):
+                dpg.configure_item(page, show=False)
+
+        if dpg.does_item_exist(target_page_tag):
+            dpg.configure_item(target_page_tag, show=True)
+            dpg.set_primary_window(target_page_tag, True)
+
+        dpg.configure_item("LoadingOverlay", show=False)
+
+    threading.Thread(target=transition_process, daemon=True).start()
+
+
+dpg.create_context()
+
+with dpg.texture_registry(show=False):
+    dpg.add_raw_texture(
+        width=cam_width,
+        height=cam_height,
+        default_value=texture_data.flatten(),
+        format=dpg.mvFormat_Float_rgba,
+        tag="camera_texture",
+    )
+
+    dpg.add_raw_texture(
+        width=plot_width,
+        height=plot_height,
+        default_value=plot_texture_data,
+        format=dpg.mvFormat_Float_rgba,
+        tag="plot_texture",
+    )
+
+    logo_size = 160
+    login_img = Image.open("src/gestura/assets/gestura-no_background.png").convert(
+        "RGBA"
+    )
+    login_img_resized = login_img.resize(
+        (logo_size, logo_size), Image.Resampling.LANCZOS
+    )
+    login_img_array = np.array(login_img_resized, dtype=np.float32) / 255.0
+
+    dpg.add_raw_texture(
+        width=logo_size,
+        height=logo_size,
+        default_value=login_img_array.flatten(),
+        format=dpg.mvFormat_Float_rgba,
+        tag="image_tag",
+    )
+
+with dpg.window(
+    tag="LoadingOverlay",
+    modal=True,
+    show=False,
+    no_title_bar=True,
+    no_move=True,
+    no_resize=True,
+):
+    dpg.set_item_width("LoadingOverlay", 1400)
+    dpg.set_item_height("LoadingOverlay", 700)
+
+    with dpg.group(horizontal=False):
+        dpg.add_spacer(height=200)
+
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=550)
+            dpg.add_image("image_tag", width=160, height=160)
+
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=430)
+            dpg.add_progress_bar(
+                tag="LoadingProgressBar", width=400, height=15, default_value=0.0
+            )
+
+        dpg.add_spacer(height=10)
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=570)
+            dpg.add_text("Memuat Sistem...", color=(148, 163, 184))
 # -------------------
 # Dpg Setup & Main Loop
 # -------------------
@@ -240,14 +329,14 @@ def build_register_window():
         with dpg.group(horizontal=True):
             dpg.add_spacer(width=435) 
             with dpg.child_window(width=400, height=620, border=True, no_scrollbar=True, no_scroll_with_mouse=True):
-                
+
                 with dpg.group(horizontal=True):
                     dpg.add_spacer(width=100)
                     dpg.add_image("image_tag")
 
                 dpg.add_separator()
                 dpg.add_spacer(height=10)
-                
+
                 with dpg.group(horizontal=True):
                     dpg.add_spacer(width=40) 
                     dpg.add_text("REGISTER NEW USER", color=(26, 188, 156), tag="register_header")
@@ -265,28 +354,26 @@ def build_register_window():
                         dpg.add_spacer(height=8)
                         dpg.add_text("Password", color=(148, 163, 184))
                         dpg.add_input_text(tag="reg_password", width=300, password=True)
-                        
+
                         dpg.add_spacer(height=8)
                         dpg.add_text("Confirm Password", color=(148, 163, 184))
                         dpg.add_input_text(tag="reg_confirm_password", width=300, password=True)
 
                         dpg.add_spacer(height=25)
-                            
+
                         dpg.add_button(
                             label=" CREATE ACCOUNT ", 
                             width=300, 
                             height=38, 
                             callback=register_user
                         )
-                        
+
                         dpg.add_spacer(height=8)
-                        
+
                         def back_to_login():
                             dpg.set_value("register_message", " ") 
-                            dpg.hide_item("RegisterWindow")
-                            dpg.show_item("LoginWindow")
-                            dpg.set_primary_window("LoginWindow", True)
-                            
+                            switch_page_with_loading("LoginWindow")
+
                         dpg.add_button(
                             label=" BACK TO LOGIN ", 
                             width=300, 
@@ -305,11 +392,11 @@ def build_login_window():
             dpg.add_spacer(width=435) 
 
             with dpg.child_window(width=400, height=550, border=True, no_scrollbar=True, no_scroll_with_mouse=True):
-                
+
                 with dpg.group(horizontal=True):
                     dpg.add_spacer(width=100)
                     dpg.add_image("image_tag")
-                
+
                 dpg.add_separator()
                 dpg.add_spacer(height=20)
 
@@ -331,13 +418,11 @@ def build_login_window():
                             callback=authenticate_user,
                         )
                         dpg.add_spacer(height=8)
-                        
+
                         def go_to_register():
                             dpg.set_value("login_message", " ") 
-                            dpg.hide_item("LoginWindow")
-                            dpg.show_item("RegisterWindow")
-                            dpg.set_primary_window("RegisterWindow", True)
-                            
+                            switch_page_with_loading("RegisterWindow")
+
                         dpg.add_button(
                             label=" REGISTER ",
                             width=300,
@@ -351,10 +436,10 @@ def build_login_window():
 def build_main_windows():
     with dpg.window(tag="PrimaryWindow", show=False, no_scrollbar=True, no_move=True, no_collapse=True, no_title_bar=True):
         with dpg.group(horizontal=True):
-            
+
             # ================== SIDEBAR ==================
             with dpg.child_window(width=280, border=False, no_scrollbar=True):
-                
+
                 with dpg.child_window(height=85, border=True, no_scrollbar=True):
                     dpg.add_spacer(height=8)
                     dpg.add_text("  GESTURA ENGINE", color=(26, 188, 156)) 
@@ -371,7 +456,7 @@ def build_main_windows():
                     dpg.add_button(label=" Start Tracking", width=-1, height=35, callback=engine_control, user_data="START")
                     dpg.add_spacer(height=2)
                     dpg.add_button(label=" Terminate Sistem", width=-1, height=35, callback=engine_control, user_data="TERMINATE")
-                    
+
                 dpg.add_spacer(height=10)
 
                 with dpg.child_window(height=-1, border=True, no_scrollbar=True):
@@ -389,10 +474,10 @@ def build_main_windows():
             # ================== Main Workspace ==================
             with dpg.group():            
                 with dpg.tab_bar():
-                    
+
                     # --- TAB 1: MAIN WORKSPACE ---
                     with dpg.tab(label="Main Workspace"):
-                        
+
                         with dpg.child_window(height=45, border=True, width=-1, no_scrollbar=True):
                             with dpg.group(horizontal=True):
                                 dpg.add_spacer(width=5, height=25)
@@ -439,11 +524,11 @@ def build_main_windows():
                                 dpg.add_text(" SPATIAL MATRIX", color=(148, 163, 184))
                                 dpg.add_separator()
                                 dpg.add_spacer(height=2) 
-                                
+
                                 with dpg.theme() as table_theme:
                                     with dpg.theme_component(dpg.mvTable):
                                         dpg.add_theme_style(dpg.mvStyleVar_CellPadding, 4, 3) 
-                                        
+
                                 with dpg.table(header_row=True, borders_innerH=True, borders_innerV=False, borders_outerV=False, row_background=True) as matrix_table:
                                     dpg.add_table_column(label="ID")
                                     dpg.add_table_column(label="X")
@@ -454,87 +539,79 @@ def build_main_windows():
                                             dpg.add_text("0.000", tag=f"t_x_{i}", color=(26, 188, 156))
                                             dpg.add_text("0.000", tag=f"t_y_{i}", color=(26, 188, 156))
                                 dpg.bind_item_theme(matrix_table, table_theme)
-                                
+
                                 dpg.add_spacer(height=10) 
-                                
+
                                 dpg.add_text(" TERMINAL OUTPUT", color=(148, 163, 184))
                                 dpg.add_separator()
-                                
+
                                 with dpg.child_window(width=-1, height=-1, border=False, tag="log_window"):
                                     with dpg.group(tag="log_group"):
                                         dpg.add_text("[INFO] Workspace Siap...", color=(148, 163, 184))
-                                        
+
                     # --- TAB 2: WINDOW ANALYSIS ---
                     with dpg.tab(label="Window Analysis"):
-                            with dpg.child_window(width=-1, height=-1, border=False, no_scrollbar=True):
-                                dpg.add_spacer(height=15)
-                                
-                                with dpg.group(horizontal=True):
-                                    dpg.add_text(" ANALISIS DATA MODEL", color=(26, 188, 156))
-                                    dpg.add_spacer(width=20)
-                                    dpg.add_button(label=" Render/Update Plot", callback=update_plot_callback)
-                                    
-                                dpg.add_separator()
-                                dpg.add_spacer(height=10)
-                                
-                                with dpg.group(horizontal=True):
-                                    
-                                    with dpg.child_window(width=640, height=480, border=True, no_scrollbar=True):
-                                        dpg.add_spacer(height=10)
-                                        with dpg.group(horizontal=True):
-                                            dpg.add_spacer(width=20)
-                                            dpg.add_image("plot_texture")
-                                            
-                                    with dpg.child_window(width=-1, height=480, border=True, no_scrollbar=True):
-                                        dpg.add_spacer(height=10)
-                                        dpg.add_text(" RINGKASAN STATISTIK", color=(148, 163, 184))
-                                        dpg.add_separator()
-                                        dpg.add_spacer(height=10)
-                                        
-                                        dpg.add_text("Model: K-Nearest Neighbor", color=(230, 240, 235))
-                                        dpg.add_text("Mean Akurasi: 85.2%", color=(74, 222, 128))
-                                        dpg.add_text("Standar Deviasi: ± 5.0%", color=(250, 204, 21))
-                                        
-                                        dpg.add_spacer(height=20)
-                                        dpg.add_text(" EXPORT DATA", color=(148, 163, 184))
-                                        dpg.add_separator()
-                                        dpg.add_spacer(height=10)
-                                        dpg.add_button(label=" Download Report (.CSV)", width=-1, height=30)
+                        with dpg.child_window(
+                            width=-1, height=-1, border=False, no_scrollbar=True
+                        ):
+                            dpg.add_spacer(height=15)
 
+                            with dpg.group(horizontal=True):
+                                dpg.add_text(
+                                    " ANALISIS DATA MODEL", color=(26, 188, 156)
+                                )
+                                dpg.add_spacer(width=20)
+                                dpg.add_button(
+                                    label=" Render/Update Plot",
+                                    callback=update_plot_callback,
+                                )
 
-dpg.create_context()
+                            dpg.add_separator()
+                            dpg.add_spacer(height=10)
 
-texture_data = np.full((cam_height, cam_width, 4), 0.08, dtype=np.float32)
+                            with dpg.group(horizontal=True):
 
-with dpg.texture_registry(show=False):
-    dpg.add_raw_texture(
-        width=cam_width,
-        height=cam_height,
-        default_value=texture_data.flatten(), 
-        format=dpg.mvFormat_Float_rgba,
-        tag="camera_texture",
-    )
+                                with dpg.child_window(
+                                    width=640,
+                                    height=480,
+                                    border=True,
+                                    no_scrollbar=True,
+                                ):
+                                    dpg.add_spacer(height=10)
+                                    with dpg.group(horizontal=True):
+                                        dpg.add_spacer(width=20)
+                                        dpg.add_image("plot_texture")
 
-    dpg.add_raw_texture(
-        width=plot_width,
-        height=plot_height,
-        default_value=plot_texture_data, 
-        format=dpg.mvFormat_Float_rgba,
-        tag="plot_texture",
-    )
+                                with dpg.child_window(
+                                    width=-1, height=480, border=True, no_scrollbar=True
+                                ):
+                                    dpg.add_spacer(height=10)
+                                    dpg.add_text(
+                                        " RINGKASAN STATISTIK", color=(148, 163, 184)
+                                    )
+                                    dpg.add_separator()
+                                    dpg.add_spacer(height=10)
 
-    logo_size = 160 
-    login_img = Image.open("src/gestura/assets/gestura-no_background.png").convert("RGBA")
-    login_img_resized = login_img.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
-    login_img_array = np.array(login_img_resized, dtype=np.float32) / 255.0
+                                    dpg.add_text(
+                                        "Model: K-Nearest Neighbor",
+                                        color=(230, 240, 235),
+                                    )
+                                    dpg.add_text(
+                                        "Mean Akurasi: 85.2%", color=(74, 222, 128)
+                                    )
+                                    dpg.add_text(
+                                        "Standar Deviasi: ± 5.0%", color=(250, 204, 21)
+                                    )
 
-    dpg.add_raw_texture(
-        width=logo_size,
-        height=logo_size,
-        default_value=login_img_array.flatten(), 
-        format=dpg.mvFormat_Float_rgba,
-        tag="image_tag",
-    )
+                                    dpg.add_spacer(height=20)
+                                    dpg.add_text(" EXPORT DATA", color=(148, 163, 184))
+                                    dpg.add_separator()
+                                    dpg.add_spacer(height=10)
+                                    dpg.add_button(
+                                        label=" Download Report (.CSV)",
+                                        width=-1,
+                                        height=30,
+                                    )
 
 with dpg.theme() as global_theme:
     with dpg.theme_component(dpg.mvAll):
@@ -579,10 +656,12 @@ try :
     dpg.set_viewport_large_icon("src/gestura/assets/gestura-single-titlebar.ico")
 except Exception as e:
     print(f"Warning: Failed to load custom icons. {e}")
-    
+
 dpg.show_viewport()
+print("DEBUG: show_viewport done, is_running=", dpg.is_dearpygui_running())
 dpg.set_primary_window("LoginWindow", True)
 set_title_bar_color(app_title, 10, 10, 10)
+print("DEBUG: before main loop, is_running=", dpg.is_dearpygui_running())
 
 # ==========================================
 # Variabel Helper di Luar Loop
@@ -598,10 +677,10 @@ while dpg.is_dearpygui_running():
         ret, cap_frame = cap.read()
         if ret:
             cap_frame = cv2.flip(cap_frame, 1)
-            
+
             points, hand_landmarks = get_hand_points_mediapipe(cap_frame)
             show_landmarks = dpg.get_value("show_lm_cb")
-            
+
             if points is not None:
                 if show_landmarks:
                     mp_draw.draw_landmarks(cap_frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
@@ -620,28 +699,28 @@ while dpg.is_dearpygui_running():
                 if capture_cooldown == 0:
                     A = points.flatten().reshape(1, -1)                    
                     hasil_huruf = gesture_engine.predict_gesture(A)
-                    
+
                     prediction_buffer.append(hasil_huruf)
-                    
+
                     if len(prediction_buffer) == 15:
                         huruf_terbanyak, jumlah_muncul = Counter(prediction_buffer).most_common(1)[0]
-                        
+
                         if jumlah_muncul >= 12:
                             print(f"[PREDIKSI STABIL] Gestur: {huruf_terbanyak} (Akurasi: {jumlah_muncul}/15)")
-                            
+
                             if dpg.does_item_exist("HurufPopup"):
                                 dpg.delete_item("HurufPopup")
-                            
+
                             with dpg.window(tag="HurufPopup", no_title_bar=True, pos=[300, 200], no_resize=True):
                                 dpg.add_text(f"  {huruf_terbanyak}  ", color=(26, 188, 156))
-                            
+
                             try:
                                 AudioPlayer.play_alphabet(huruf_terbanyak)
                             except Exception as e:
                                 print(f"Gagal memutar audio: {e}")
-                            
+
                             prediction_buffer.clear()
-                            
+
                             capture_cooldown = 60
 
             # ==========================================
@@ -659,13 +738,13 @@ while dpg.is_dearpygui_running():
             # ==========================================
             rgba_frame = cv2.cvtColor(cap_frame, cv2.COLOR_BGR2RGBA)
             if rgba_frame.shape[1] != cam_width or rgba_frame.shape[0] != cam_height:
-                 rgba_frame = cv2.resize(rgba_frame, (cam_width, cam_height))
-                 
+                rgba_frame = cv2.resize(rgba_frame, (cam_width, cam_height))
+
             texture_data = rgba_frame.astype(np.float32) / 255.0
             dpg.set_value("camera_texture", texture_data.flatten()) 
 
     dpg.render_dearpygui_frame()
-    
+
 if cap is not None:
     cap.release()
 hands.close()
