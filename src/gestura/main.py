@@ -6,11 +6,16 @@ import numpy as np
 import mediapipe as mp
 import dearpygui.dearpygui as dpg
 import time
-import matplotlib.pyplot as plt
 import seaborn as sns 
 import io 
 import ctypes
 from PIL import Image
+
+import matplotlib 
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+
 from gestura import DatabaseManager, GestureEngine, AuthController
 from gestura.utils.audio_player import AudioPlayer
 from collections import deque, Counter
@@ -158,37 +163,53 @@ def engine_control(sender, app_data, user_data):
         log_message("[INFO] All systems released safely.", color=(148, 163, 184))
 
 
-def generate_analysis_plot():
-        plt.style.use('dark_background')
-        fig, ax = plt.subplots(figsize=(6, 4), dpi=100) 
-        
-        bg_color = '#121E23' 
-        fig.patch.set_facecolor(bg_color)
-        ax.set_facecolor(bg_color)
-        
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['bottom'].set_color('#23373C')
-        ax.spines['left'].set_color('#23373C')
+def generate_analysis_plot(df, plot_width=600, plot_height=400):
+    
+    # === chart 1 ===
+    """Menghasilkan plot EDA dan mengembalikannya sebagai array RGBA untuk DPG."""
+    if plot_width is None: plot_width = 600
+    if plot_height is None: plot_height = 400
 
-        data = np.random.normal(0.85, 0.05, 1000) 
-        sns.histplot(data, color="#1ABC9C", kde=True, ax=ax, edgecolor="#121E23") 
-        
-        ax.set_title("Distribusi Confidence Rate (KNN)", color="#E6F0EB", pad=15)
-        ax.set_xlabel("Confidence Level", color="#94A3B8")
-        ax.set_ylabel("Frekuensi", color="#94A3B8")
+    plt.style.use('dark_background')
+    fig, ax = plt.subplots(figsize=(plot_width/100, plot_height/100), dpi=100) 
+    
+    bg_color = '#24252a'
+    fig.patch.set_facecolor(bg_color)
+    ax.set_facecolor(bg_color)
+    
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_color('#2c313c')
+    ax.spines['left'].set_color('#2c313c')
 
-        buf = io.BytesIO()
-        fig.savefig(buf, format='rgba', bbox_inches='tight', facecolor=fig.get_facecolor())
-        plt.close(fig) 
-        
-        buf.seek(0)
-        img = Image.open(buf)
-        
-        img = img.resize((plot_width, plot_height), Image.Resampling.LANCZOS)
-        img_array = np.array(img, dtype=np.float32) / 255.0
-        
-        dpg.set_value("plot_texture", img_array.flatten())
+    sns.countplot(data=df, x="char", ax=ax, hue="char", palette="viridis", legend=False) 
+    
+    ax.set_title("Distribusi data train dari label/char", color="#E6F0EB", pad=15, fontweight='bold')
+    ax.set_xlabel("Char(Karakter)", color="#94A3B8")
+    ax.set_ylabel("Jumlah Koordinat", color="#94A3B8")
+
+    buf = io.BytesIO()
+    
+    fig.savefig(buf, format='png', bbox_inches='tight', facecolor=fig.get_facecolor())
+    plt.close(fig) 
+    
+    buf.seek(0)    
+    img = Image.open(buf).convert('RGBA')
+    
+    img = img.resize((plot_width, plot_height), Image.Resampling.LANCZOS)
+    img_array = np.array(img, dtype=np.float32) / 255.0
+    
+    return img_array.flatten()
+
+
+def update_plot_callback(sender, app_data, user_data):
+    """Callback khusus tombol untuk memperbarui gambar grafik di layar."""
+    print("[INFO] Merender ulang grafik EDA...")    
+    img_array_flatten = generate_analysis_plot(gesture_engine.df, plot_width=600, plot_height=400)
+    
+    dpg.set_value("plot_texture", img_array_flatten)
+    
+    print("[INFO] Grafik berhasil diperbarui.")
         
 def set_title_bar_color(window_title, r, g, b):
     try:
@@ -451,7 +472,7 @@ def build_main_windows():
                                 with dpg.group(horizontal=True):
                                     dpg.add_text(" ANALISIS DATA MODEL", color=(26, 188, 156))
                                     dpg.add_spacer(width=20)
-                                    dpg.add_button(label=" Render/Update Plot", callback=generate_analysis_plot)
+                                    dpg.add_button(label=" Render/Update Plot", callback=update_plot_callback)
                                     
                                 dpg.add_separator()
                                 dpg.add_spacer(height=10)
@@ -484,11 +505,12 @@ def build_main_windows():
 dpg.create_context()
 
 texture_data = np.full((cam_height, cam_width, 4), 0.08, dtype=np.float32)
+
 with dpg.texture_registry(show=False):
     dpg.add_raw_texture(
         width=cam_width,
         height=cam_height,
-        default_value=texture_data,
+        default_value=texture_data.flatten(), 
         format=dpg.mvFormat_Float_rgba,
         tag="camera_texture",
     )
@@ -496,12 +518,12 @@ with dpg.texture_registry(show=False):
     dpg.add_raw_texture(
         width=plot_width,
         height=plot_height,
-        default_value=plot_texture_data,
+        default_value=plot_texture_data, 
         format=dpg.mvFormat_Float_rgba,
         tag="plot_texture",
     )
 
-    logo_size = 160
+    logo_size = 160 
     login_img = Image.open("src/gestura/assets/gestura-no_background.png").convert("RGBA")
     login_img_resized = login_img.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
     login_img_array = np.array(login_img_resized, dtype=np.float32) / 255.0
@@ -509,7 +531,7 @@ with dpg.texture_registry(show=False):
     dpg.add_raw_texture(
         width=logo_size,
         height=logo_size,
-        default_value=login_img_array.flatten(),
+        default_value=login_img_array.flatten(), 
         format=dpg.mvFormat_Float_rgba,
         tag="image_tag",
     )
