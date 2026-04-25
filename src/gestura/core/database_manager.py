@@ -6,11 +6,9 @@ class DatabaseManager:
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
 
     def get_connection(self):
-        """Membuka koneksi baru untuk transaksi terisolasi."""
         return sqlite3.connect(self.db_path)
 
     def add_hand_data(self, label, coordinates):
-        """Menambahkan data landmark tangan ke dataset."""
         placeholders = ", ".join(["?"] * 43) 
         query = f"INSERT INTO hand_dataset (label, {self._get_coord_column_names()}) VALUES ({placeholders})"
         
@@ -19,14 +17,12 @@ class DatabaseManager:
             conn.commit()
 
     def fetch_all_training_data(self):
-        """Mengambil semua data untuk di-fit ke model KNN di engine.py."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM hand_dataset")
             return cursor.fetchall()
 
     def log_inference(self, char, conf, latency):
-        """Mencatat hasil prediksi ke database."""
         with self.get_connection() as conn:
             conn.execute('''
                 INSERT INTO inference_logs (predicted_char, confidence, latency_ms)
@@ -35,21 +31,18 @@ class DatabaseManager:
             conn.commit()
 
     def get_recent_logs(self, limit=10):
-        """Mengambil log terbaru untuk ditampilkan di UI Log."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT timestamp, predicted_char, confidence FROM inference_logs ORDER BY id DESC LIMIT ?", (limit,))
             return cursor.fetchall()
 
     def _get_coord_column_names(self):
-        """Helper untuk mendapatkan nama kolom koordinat."""
         names = []
         for i in range(21):
             names.extend([f"point_{i}x", f"point_{i}y"])
         return ", ".join(names)
     
     def auth_user(self, username):
-        """Mengambil password untuk autentikasi user aktif."""
         cursor = self.conn.execute(
             "SELECT password FROM msuser WHERE username = ? AND isactive = 1", 
             (username,)
@@ -57,7 +50,6 @@ class DatabaseManager:
         return cursor.fetchone()
     
     def create_user(self, username, password_hash):
-        """Membuat user baru dengan data audit yang terisi otomatis."""
         waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         isactive = 1          

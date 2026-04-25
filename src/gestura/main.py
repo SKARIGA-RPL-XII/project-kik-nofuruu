@@ -40,6 +40,7 @@ db = DatabaseManager()
 auth = AuthController(db)
 gesture_engine = GestureEngine()
 
+
 # -------------------
 # Mediapipe Setup
 # -------------------
@@ -74,6 +75,18 @@ def authenticate_user(sender, app_data, user_data):
     else:
         dpg.set_value("login_message", "[ERROR] Username atau Password salah!")
         dpg.configure_item("login_message", color=(248, 113, 113, 255))
+        
+def logout_user(sender, app_data, user_data):
+    if dpg.does_item_exist("username"):
+        dpg.set_value("username", "")
+    if dpg.does_item_exist("password"):
+        dpg.set_value("password", "")
+        
+    if dpg.does_item_exist("login_message"):
+        dpg.set_value("login_message", "")
+        dpg.configure_item("login_message", color=(255, 255, 255, 255))
+        
+    switch_page_with_loading("LoginWindow")
 
 
 def register_user(sender, app_data, user_data):
@@ -133,6 +146,7 @@ def log_message(message, color=(148, 163, 184)):
     y_scroll = dpg.get_y_scroll_max("log_window")
     dpg.set_y_scroll("log_window", y_scroll)
 
+    
 
 def engine_control(sender, app_data, user_data):
     global engine_running, cap, cam_width, cam_height
@@ -309,6 +323,7 @@ def export_excel_report_callback(sender: int, app_data: any, user_data: any) -> 
         dpg.set_value("export_status_msg", "Gagal menyimpan file Excel!")
         dpg.configure_item("export_status_msg", color=(248, 113, 113))
 
+
 def set_title_bar_color(window_title, r, g, b):
     try:
         hwnd = ctypes.windll.user32.FindWindowW(None, window_title)
@@ -343,6 +358,15 @@ def switch_page_with_loading(target_page_tag):
         dpg.configure_item("LoadingOverlay", show=False)
 
     threading.Thread(target=transition_process, daemon=True).start()
+    
+def toggle_password(sender, app_data, user_data):
+    is_checked = app_data
+    dpg.configure_item("password", password=not is_checked)
+    dpg.configure_item("reg_password", password=not is_checked)
+    dpg.configure_item("reg_confirm_password", password=not is_checked)
+    
+
+    
 
 
 dpg.create_context()
@@ -469,8 +493,9 @@ def build_register_window():
                         dpg.add_input_text(
                             tag="reg_confirm_password", width=300, password=True
                         )
-
-                        dpg.add_spacer(height=25)
+                        dpg.add_spacer(height=5)
+                        dpg.add_checkbox(label="Show Password", tag="show_reg_password", callback=toggle_password)
+                        dpg.add_spacer(height=15)
 
                         dpg.add_button(
                             label=" CREATE ACCOUNT ",
@@ -492,9 +517,6 @@ def build_register_window():
                             callback=back_to_login,
                         )
 
-
-
-
 def build_login_window():
     with dpg.window(tag="LoginWindow", no_title_bar=True, no_resize=True, no_move=True):
         dpg.add_spacer(height=80)
@@ -504,7 +526,7 @@ def build_login_window():
 
             with dpg.child_window(
                 width=400,
-                height=500,
+                height=540,
                 border=True,
                 no_scrollbar=True,
                 no_scroll_with_mouse=True,
@@ -536,16 +558,17 @@ def build_login_window():
                             on_enter=True,
                             callback=authenticate_user,
                         )
+                        dpg.add_spacer(height=5)
+                        dpg.add_checkbox(label="Show Password", tag="showPassword", callback=toggle_password)
 
-                        dpg.add_spacer(height=25)
+                        dpg.add_spacer(height=15)
                         dpg.add_button(
                             label=" LOGIN ",
                             width=300,
                             height=38,
                             callback=authenticate_user,
-                        )
-                        dpg.add_spacer(height=8)
-
+                        )                        
+                        dpg.add_spacer(height=5)
                         def go_to_register():
                             dpg.set_value("login_message", " ")
                             switch_page_with_loading("RegisterWindow")
@@ -556,8 +579,6 @@ def build_login_window():
                             height=38,
                             callback=go_to_register,
                         )
-
-
 
 def build_main_windows():
     with dpg.window(
@@ -583,7 +604,7 @@ def build_main_windows():
 
                 with dpg.child_window(height=175, border=True, no_scrollbar=True):
                     dpg.add_spacer(height=5)
-                    dpg.add_text("  MAIN MENU", color=(148, 163, 184))
+                    dpg.add_text("  MAIN MENU ", color=(148, 163, 184))
                     dpg.add_separator()
                     dpg.add_spacer(height=8)
                     dpg.add_button(
@@ -606,29 +627,28 @@ def build_main_windows():
 
                 with dpg.child_window(height=-1, border=True, no_scrollbar=True):
                     dpg.add_spacer(height=5)
-                    dpg.add_text("  KONFIGURASI", color=(148, 163, 184))
+                    dpg.add_text("  INFORMASI KONFIGURASI SISTEM ", color=(148, 163, 184))
                     dpg.add_separator()
                     dpg.add_spacer(height=5)
                     dpg.add_slider_int(
                         label="K-Value",
                         default_value=3,
-                        min_value=1,
-                        max_value=15,
+                        enabled=False,
                         width=150,
                     )
                     dpg.add_slider_float(
                         label="Threshold",
                         default_value=0.75,
-                        min_value=0.0,
-                        max_value=1.0,
+                        enabled=False,
                         width=150,
                     )
                     dpg.add_spacer(height=10)
                     dpg.add_checkbox(
                         label=" Tampilkan Nodes", default_value=True, tag="show_lm_cb"
                     )
+                    
                     dpg.add_spacer(height=15)
-                    dpg.add_button(label=" Reset Kalibrasi", width=-1, height=35)
+                    dpg.add_button(label=" Logout ", width=-1, height=35, callback=logout_user)
 
             # ====================================
             # =========== MAIN WORKSPACE =========
@@ -700,10 +720,6 @@ def build_main_windows():
                                     dpg.add_text(
                                         " VISUALISASI KAMERA", color=(148, 163, 184)
                                     )
-                                    dpg.add_spacer(width=20)
-                                    dpg.add_text(
-                                        "| TEKAN 'C' UNTUK SIMPAN", color=(250, 204, 21)
-                                    )
                                 dpg.add_separator()
                                 dpg.add_spacer(height=5)
                                 with dpg.child_window(
@@ -756,9 +772,11 @@ def build_main_windows():
 
                                 dpg.add_spacer(height=10)
 
-                                dpg.add_text(" TERMINAL OUTPUT", color=(148, 163, 184))
-                                dpg.add_separator()
+                                with dpg.group(horizontal=True):
+                                    dpg.add_text(" TERMINAL OUTPUT", color=(148, 163, 184))
+                                    dpg.add_spacer(width=20)
 
+                                dpg.add_separator()
                                 with dpg.child_window(
                                     width=-1, height=-1, border=False, tag="log_window"
                                 ):
@@ -771,7 +789,7 @@ def build_main_windows():
                     # ====================================
                     # =========== ANALYTIC WINDOW ========
                     # ====================================
-                    with dpg.tab(label="Window Analysis"):
+                    with dpg.tab(label="System Information & Analytics"):
                         with dpg.child_window(
                             width=-1, height=-1, border=False, no_scrollbar=True
                         ):
@@ -924,6 +942,13 @@ print("DEBUG: before main loop, is_running=", dpg.is_dearpygui_running())
 # ==========================================
 capture_cooldown = 0
 prediction_buffer = deque(maxlen=15)
+kalimat_terkumpul = ""
+last_detected = ""
+
+last_gesture_time = time.time()
+AUTO_READ_TIMEOUT = 7.0
+
+
 
 # ==========================================
 # Main Loop gestur tangan dan kamera
@@ -970,36 +995,55 @@ while dpg.is_dearpygui_running():
                         huruf_terbanyak, jumlah_muncul = Counter(
                             prediction_buffer
                         ).most_common(1)[0]
-
+                        
                         if jumlah_muncul >= 12:
-                            print(
-                                f"[PREDIKSI STABIL] Gestur: {huruf_terbanyak} (Akurasi: {jumlah_muncul}/15)"
-                            )
-
+                            
+                            if huruf_terbanyak != last_detected:   
+                                if huruf_terbanyak == "SPACE":
+                                    kalimat_terkumpul += " "
+                                    log_message(f"Teks: {kalimat_terkumpul}")
+                                    
+                                    last_gesture_time = time.time() 
+                                else: 
+                                    kalimat_terkumpul += huruf_terbanyak
+                                    log_message(f"{kalimat_terkumpul}")    
+                                    
+                                    last_gesture_time = time.time()
+                                    try:
+                                        AudioPlayer.play_alphabet(huruf_terbanyak)
+                                    except Exception as e:
+                                        print(f"Gagal memutar audio: {e}")
+                                
+                                last_detected = huruf_terbanyak                            
+                            
                             if dpg.does_item_exist("HurufPopup"):
                                 dpg.delete_item("HurufPopup")
 
-                            with dpg.window(
-                                tag="HurufPopup",
-                                no_title_bar=True,
-                                pos=[300, 200],
-                                no_resize=True,
-                            ):
-                                dpg.add_text(
-                                    f"  {huruf_terbanyak}  ", color=(26, 188, 156)
-                                )
-
-                            try:
-                                AudioPlayer.play_alphabet(huruf_terbanyak)
-                            except Exception as e:
-                                print(f"Gagal memutar audio: {e}")
+                            if huruf_terbanyak not in ["SPACE", "DONE"]:
+                                with dpg.window(
+                                    tag="HurufPopup",
+                                    no_title_bar=True,
+                                    pos=[300, 200],
+                                    no_resize=True,
+                                ):
+                                    dpg.add_text(
+                                        f"  {huruf_terbanyak}  ", color=(26, 188, 156) 
+                                    )
 
                             prediction_buffer.clear()
-
                             capture_cooldown = 60
-
+                            
+            waktu_sekarang = time.time()
+            
+            if kalimat_terkumpul.strip() != "" and (waktu_sekarang - last_gesture_time) >= AUTO_READ_TIMEOUT:
+                log_message(f"Auto-read: {kalimat_terkumpul}")
+                threading.Thread(target=AudioPlayer._speak_task, args=(kalimat_terkumpul,), daemon=True).start()
+                kalimat_terkumpul = ""
+                last_detected = ""
+                
+                
             # ==========================================
-            # Pop Up Alfabet
+            # Hasil Alfabet
             # ==========================================
             if capture_cooldown == 30:
                 if dpg.does_item_exist("HurufPopup"):
